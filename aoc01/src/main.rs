@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::io::{self, Lines, Read, Write};
+use std::io::{self, Read, Write};
 use std::iter::Map;
 
 type Result<T> = ::std::result::Result<T, Box<dyn ::std::error::Error>>;
@@ -11,10 +11,10 @@ fn main() -> Result<()> {
     // Parse the input from string into numbers:
 
     let sum = part1(&input)?;
-    writeln!(io::stdout(), "sum: {}", sum);
+    writeln!(io::stdout(), "sum: {}", sum)?;
 
     let repeated_frequency = part2(&input)?;
-    writeln!(io::stdout(), "first repeated freq: {}", repeated_frequency);
+    writeln!(io::stdout(), "first repeated freq: {}", repeated_frequency)?;
 
     Ok(())
 }
@@ -34,6 +34,7 @@ fn get_nums(input: &str) -> Map<std::str::Lines, fn(&str) -> i32> {
 
 fn part1(input: &str) -> Result<i32> {
     // TODO: how to prevent integer overflow when summing?
+    // https://doc.rust-lang.org/std/primitive.u32.html#method.saturating_add
     Ok(get_nums(input).sum())
 }
 
