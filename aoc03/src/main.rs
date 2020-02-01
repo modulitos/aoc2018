@@ -13,20 +13,34 @@ fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().lock().read_to_string(&mut input)?;
 
-    println!("input received!");
-    writeln!(io::stdout(), "overlaps: {}", get_overlaps(&input)?)?;
-    Ok(())
-}
-
-fn get_overlaps(input: &str) -> Result<i32> {
-    let mut claims: Vec<Claim> = Vec::new();
-    for line in input.lines() {
-        claims.push(Claim::from_str(line)?);
-    }
+    let claims = claims_from_str(&input)?;
 
     // TODO: Program hangs if we use u32. Why??
     let mut grid = [[u8::from(0); GRID_SIZE]; GRID_SIZE];
 
+    writeln!(
+        io::stdout(),
+        "overlaps: {}",
+        count_overlaps(&claims, &mut grid)?
+    )?;
+
+    writeln!(
+        io::stdout(),
+        "non-overlapping claim: {}",
+        get_non_overlapping(&claims, &grid)?
+    )?;
+    Ok(())
+}
+
+fn claims_from_str(input: &str) -> Result<Vec<Claim>> {
+    let mut claims: Vec<Claim> = Vec::new();
+    for line in input.lines() {
+        claims.push(Claim::from_str(line)?);
+    }
+    Ok(claims)
+}
+
+fn count_overlaps(claims: &Vec<Claim>, grid: &mut [[u8; 1000]; 1000]) -> Result<i32> {
     claims.iter().for_each(|c| {
         c.iter_points().for_each(|(x, y)| {
             // TODO: usize doesn't have try_from on a u8. How to avoid type casting here?
@@ -48,6 +62,18 @@ fn get_overlaps(input: &str) -> Result<i32> {
     }
 
     Ok(counts)
+}
+
+fn get_non_overlapping(claims: &Vec<Claim>, grid: &[[u8; 1000]; 1000]) -> Result<u32> {
+    Ok(claims
+        .iter()
+        .find(|claim| {
+            claim
+                .iter_points()
+                .all(|(x, y)| grid[x as usize][y as usize] < 2)
+        })
+        .unwrap()
+        .id)
 }
 
 struct Claim {
@@ -119,7 +145,6 @@ impl FromStr for Claim {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        println!("parsing string: {}", s);
         lazy_static! {
             static ref RE: Regex = Regex::new(
                 r"(?x)
@@ -148,7 +173,15 @@ impl FromStr for Claim {
 fn test_overlaps() -> Result<()> {
     let s = "#1 @ 1,3: 4x4\n#2 @ 3,1: 4x4\n#3 @ 5,5: 2x2\n";
 
-    assert_eq!(get_overlaps(s)?, 4);
+    let claims: Vec<Claim> = claims_from_str(&s)?;
+    assert_eq!(claims[0].id, 1);
+
+    // TODO: Program hangs if we use u32. Why??
+    let mut grid = [[u8::from(0); GRID_SIZE]; GRID_SIZE];
+
+    assert_eq!(count_overlaps(&claims, &mut grid)?, 4);
+
+    assert_eq!(get_non_overlapping(&claims, &grid)?, 3);
 
     println!("overlaps passed!");
     Ok(())
