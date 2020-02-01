@@ -4,8 +4,8 @@ use regex::Regex;
 use std::io::{self, Read, Write};
 use std::str::FromStr;
 
-type Error = Box<dyn ::std::error::Error>;
-type Result<T> = ::std::result::Result<T, Error>;
+type Error = Box<dyn std::error::Error>;
+type Result<T> = std::result::Result<T, Error>;
 
 const GRID_SIZE: usize = 1000;
 
@@ -35,7 +35,7 @@ fn main() -> Result<()> {
 fn claims_from_str(input: &str) -> Result<Vec<Claim>> {
     let mut claims: Vec<Claim> = Vec::new();
     for line in input.lines() {
-        claims.push(Claim::from_str(line)?);
+        claims.push(line.parse()?);
     }
     Ok(claims)
 }
@@ -43,9 +43,7 @@ fn claims_from_str(input: &str) -> Result<Vec<Claim>> {
 fn count_overlaps(claims: &Vec<Claim>, grid: &mut [[u8; 1000]; 1000]) -> Result<i32> {
     claims.iter().for_each(|c| {
         c.iter_points().for_each(|(x, y)| {
-            // TODO: usize doesn't have try_from on a u8. How to avoid type casting here?
-
-            grid[x as usize][y as usize] += 1;
+            grid[x][y] = grid[x][y].saturating_add(1);
         })
     });
 
@@ -67,11 +65,7 @@ fn count_overlaps(claims: &Vec<Claim>, grid: &mut [[u8; 1000]; 1000]) -> Result<
 fn get_non_overlapping(claims: &Vec<Claim>, grid: &[[u8; 1000]; 1000]) -> Result<u32> {
     Ok(claims
         .iter()
-        .find(|claim| {
-            claim
-                .iter_points()
-                .all(|(x, y)| grid[x as usize][y as usize] < 2)
-        })
+        .find(|claim| claim.iter_points().all(|(x, y)| grid[x][y] < 2))
         .unwrap()
         .id)
 }
@@ -101,7 +95,7 @@ struct IterPoints<'c> {
 }
 
 impl<'c> Iterator for IterPoints<'c> {
-    type Item = (u32, u32);
+    type Item = (usize, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.px >= self.claim.x + self.claim.dx {
@@ -117,7 +111,10 @@ impl<'c> Iterator for IterPoints<'c> {
 
         let (px, py) = (self.px, self.py);
         self.px += 1;
-        Some((px, py))
+
+        // TODO: usize doesn't have try_from on a u8. How to avoid type casting here?
+
+        Some((px as usize, py as usize))
     }
 }
 
