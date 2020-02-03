@@ -40,7 +40,7 @@ fn get_guards(input: &str) -> Result<Vec<Guard>> {
     let mut grouped_events: HashMap<GuardId, Vec<Event>> = HashMap::new();
     let mut cur_guard_id = None;
     for ev in events {
-        if let EventType::GuardStart { guard_id } = ev.event_type {
+        if let EventKind::GuardStart { guard_id } = ev.kind {
             cur_guard_id = Some(guard_id);
         } else {
             match cur_guard_id {
@@ -62,6 +62,7 @@ fn get_guards(input: &str) -> Result<Vec<Guard>> {
     Ok(guards)
 }
 
+// part 1
 fn find_sleepiest_guard_minute_product(guards: &Vec<Guard>) -> Result<u32> {
     // Find the guard who sleeps the most, and return his sleepiest minute.
     let sleepiest_guard = guards
@@ -80,26 +81,28 @@ fn find_sleepiest_guard_minute_product(guards: &Vec<Guard>) -> Result<u32> {
     Ok(sleepiest_guard.id * (sleepiest_minute as u32))
 }
 
+// part 2
 fn find_guard_minute_most_frequently_asleep(guards: &Vec<Guard>) -> Result<u32> {
-    let (guard, (minute, _)) = guards
+    let (guard, (sleepiest_minute, _)) = guards
         .iter()
         .map(|guard| -> (&Guard, (usize, u32)) {
-            // get the most freq min asleep for the guard:
-            let (min, freq) = guard
+            // get the most freq min asleep for this guard:
+            let (sleepiest_minute, freq) = guard
                 .sleeps
                 .iter()
                 .enumerate()
                 .max_by_key(|(i, freq)| -> u32 { **freq })
                 .expect("unable to find the most frequent minute asleep!");
-            (guard, (min, *freq))
+            (guard, (sleepiest_minute, *freq))
         })
         .max_by_key(|(_, (_, freq))| -> u32 {
-            // get the guard with the highest freq
+            // get the guard with the highest minute frequency of being asleep
             *freq
         })
         .expect("unable to find a guard with minutes most frequently asleep!");
-    Ok(guard.id * (minute as u32))
+    Ok(guard.id * (sleepiest_minute as u32))
 }
+
 type SleepSchedule = [u32; 60];
 
 fn get_sleep_schedule(events: &Vec<Event>) -> SleepSchedule {
@@ -109,12 +112,12 @@ fn get_sleep_schedule(events: &Vec<Event>) -> SleepSchedule {
         match (iter.next(), iter.next()) {
             (
                 Some(Event {
-                    event_type: EventType::Asleep,
+                    kind: EventKind::Asleep,
                     timestamp: sleep_time,
                     ..
                 }),
                 Some(Event {
-                    event_type: EventType::Wakeup,
+                    kind: EventKind::Wakeup,
                     timestamp: wake_time,
                     ..
                 }),
@@ -140,7 +143,7 @@ struct Guard {
 }
 
 #[derive(PartialEq, Debug)]
-enum EventType {
+enum EventKind {
     GuardStart { guard_id: GuardId },
     Asleep,
     Wakeup,
@@ -156,7 +159,7 @@ struct DateTime {
 }
 
 struct Event {
-    event_type: EventType,
+    kind: EventKind,
     timestamp: DateTime,
 }
 
@@ -192,7 +195,7 @@ impl FromStr for Event {
             minute: caps["minute"].parse()?,
         };
 
-        use EventType::*;
+        use EventKind::*;
 
         let event_type = if let Some(guard_id) = caps.name("id") {
             GuardStart {
@@ -211,7 +214,7 @@ impl FromStr for Event {
         };
 
         let event = Event {
-            event_type,
+            kind: event_type,
             timestamp: datetime,
         };
 
