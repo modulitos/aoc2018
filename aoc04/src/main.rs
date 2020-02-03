@@ -12,12 +12,22 @@ fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    writeln!(io::stdout(), "guard number is: {}", find_guard(&input)?)?;
+    let guards = get_guards(&input)?;
+    writeln!(
+        io::stdout(),
+        "product of sleepiest guard id and most frequent minute asleep: {}",
+        find_sleepiest_guard_minute_product(&guards)?
+    )?;
 
+    writeln!(
+        io::stdout(),
+        "product of most frequent minute a guard is asleep, and guard id: {}",
+        find_guard_minute_most_frequently_asleep(&guards)?
+    )?;
     Ok(())
 }
 
-fn find_guard(input: &str) -> Result<u32> {
+fn get_guards(input: &str) -> Result<Vec<Guard>> {
     // parse into Events:
     let mut events: Vec<Event> = vec![];
     for line in input.lines() {
@@ -49,7 +59,10 @@ fn find_guard(input: &str) -> Result<u32> {
             sleeps: get_sleep_schedule(events),
         })
         .collect();
+    Ok(guards)
+}
 
+fn find_sleepiest_guard_minute_product(guards: &Vec<Guard>) -> Result<u32> {
     // Find the guard who sleeps the most, and return his sleepiest minute.
     let sleepiest_guard = guards
         .iter()
@@ -67,6 +80,26 @@ fn find_guard(input: &str) -> Result<u32> {
     Ok(sleepiest_guard.id * (sleepiest_minute as u32))
 }
 
+fn find_guard_minute_most_frequently_asleep(guards: &Vec<Guard>) -> Result<u32> {
+    let (guard, (minute, _)) = guards
+        .iter()
+        .map(|guard| -> (&Guard, (usize, u32)) {
+            // get the most freq min asleep for the guard:
+            let (min, freq) = guard
+                .sleeps
+                .iter()
+                .enumerate()
+                .max_by_key(|(i, freq)| -> u32 { **freq })
+                .expect("unable to find the most frequent minute asleep!");
+            (guard, (min, *freq))
+        })
+        .max_by_key(|(_, (_, freq))| -> u32 {
+            // get the guard with the highest freq
+            *freq
+        })
+        .expect("unable to find a guard with minutes most frequently asleep!");
+    Ok(guard.id * (minute as u32))
+}
 type SleepSchedule = [u32; 60];
 
 fn get_sleep_schedule(events: &Vec<Event>) -> SleepSchedule {
@@ -207,7 +240,10 @@ fn test_find_guard() -> Result<()> {
 [1518-11-05 00:45] falls asleep
 [1518-11-05 00:55] wakes up\
 ";
-    assert_eq!(find_guard(&s)?, 240);
+    let guards = get_guards(&s)?;
+    assert_eq!(find_sleepiest_guard_minute_product(&guards)?, 240);
+
+    assert_eq!(find_guard_minute_most_frequently_asleep(&guards)?, 4455);
     println!("find_guard passes!");
     Ok(())
 }
