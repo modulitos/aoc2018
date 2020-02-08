@@ -14,6 +14,12 @@ fn main() -> Result<()> {
         react(input)?.len()
     )?;
 
+    writeln!(
+        io::stdout(),
+        "length of shortest inert polymer after 1 pair removal: {}",
+        find_shortest_inert_length(input)?
+    )?;
+
     Ok(())
 }
 
@@ -51,8 +57,32 @@ fn reacts(c1: u8, c2: u8) -> bool {
     }
 }
 
+// find the shortest inert length after removing one polymer pair
+
+fn find_shortest_inert_length(polymer: &str) -> Result<usize> {
+    Ok((b'A'..b'Z')
+        .map(|byte| {
+            let byte_pair = byte + 32;
+            let test_polymer = polymer
+                .replace(char::from(byte), "")
+                .replace(char::from(byte_pair), "");
+            // TODO: how to leverage ? operator from inside closure?!
+            react(&test_polymer).ok().unwrap().len()
+        })
+        .min()
+        .expect("iterator should not be empty"))
+}
+
 #[test]
-fn test_polymer() -> Result<()> {
+fn test_shortest_inert_length() -> Result<()> {
+    let polymer = "dabAcCaCBAcCcaDA";
+    assert_eq!(find_shortest_inert_length(polymer)?, 4);
+    println!("shortest inert length successful!");
+    Ok(())
+}
+
+#[test]
+fn test_react() -> Result<()> {
     let polymer = "dabAcCaCBAcCcaDA";
     assert_eq!(react(polymer)?, "dabCBAcaDA");
     assert_eq!(react(polymer)?.len(), 10);
