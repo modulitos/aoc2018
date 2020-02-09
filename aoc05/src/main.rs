@@ -1,8 +1,9 @@
 use std::io::{self, Read, Write};
 
 type Error = Box<dyn std::error::Error>;
-type Result<T> = std::result::Result<T, Error>;
+type Result<T, E = Error> = std::result::Result<T, E>;
 
+// TODO: figure out how to encode a string that is only ascii, and have this function
 fn main() -> Result<()> {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
@@ -26,15 +27,17 @@ fn main() -> Result<()> {
 // Note that we can return a string slice from a function only if the returned slice is derived from
 // the lifetime of the originating string/slice
 
-fn react(polymer: &str) -> Result<String> {
+type InvalidInput = String;
+
+fn react(polymer: &str) -> Result<String, InvalidInput> {
     if !polymer.is_ascii() {
-        panic!("non-ascii!");
+        return Err(String::from("input string is non-ascii!"));
     }
     let mut polymer = polymer.as_bytes().to_vec();
     let mut i = 0;
     loop {
         if i + 1 >= polymer.len() {
-            return Ok(String::from_utf8(polymer).expect("should not have ascii"));
+            return Ok(String::from_utf8(polymer).expect("should not have non-utf8 string"));
         }
         if reacts(polymer[i], polymer[i + 1]) {
             // remove the reacting polymers
@@ -59,18 +62,21 @@ fn reacts(c1: u8, c2: u8) -> bool {
 
 // find the shortest inert length after removing one polymer pair
 
-fn find_shortest_inert_length(polymer: &str) -> Result<usize> {
-    Ok((b'A'..b'Z')
-        .map(|byte| {
+fn find_shortest_inert_length(polymer: &str) -> Result<usize, String> {
+    let res = (b'A'..b'Z')
+        .map(|byte| -> Result<usize, String> {
             let byte_pair = byte + 32;
             let test_polymer = polymer
                 .replace(char::from(byte), "")
                 .replace(char::from(byte_pair), "");
-            // TODO: how to leverage ? operator from inside closure?!
-            react(&test_polymer).ok().unwrap().len()
+            react(&test_polymer).and_then(|inert| Ok(inert.len()))
         })
+        .collect::<Result<Vec<usize>, String>>()?;
+
+    Ok(res
+        .into_iter()
         .min()
-        .expect("iterator should not be empty"))
+        .expect("should not have an empty iter"))
 }
 
 #[test]
