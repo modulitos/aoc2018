@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::io::{self, Read, Write};
-use std::iter::Map;
 
-type Result<T> = ::std::result::Result<T, Box<dyn ::std::error::Error>>;
+type Error = Box<dyn ::std::error::Error>;
+type Result<T, E = Error> = ::std::result::Result<T, E>;
 
 fn main() -> Result<()> {
     let mut input = String::new();
@@ -19,15 +19,12 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_nums(input: &str) -> Map<std::str::Lines, fn(&str) -> i32> {
-    // TODO: Can we unwrap in a way that surfaces this error, without having to resort to a for-loop? It
-    // would be ideal to use the '?' operator instead of expect to unwrap the result from
-    // item.parse: https://stackoverflow.com/a/26370894/1884158
-
-    input.lines().map(|item| {
-        item.parse::<i32>()
-            .expect("Unable to parse item into an i32")
-    })
+fn get_nums(input: &str) -> Result<impl Iterator<Item = i32>> {
+    Ok(input
+        .lines()
+        .map(|item| item.parse::<i32>())
+        .collect::<Result<Vec<i32>, std::num::ParseIntError>>()?
+        .into_iter())
 }
 
 // Return a sum of the numbers.
@@ -35,7 +32,7 @@ fn get_nums(input: &str) -> Map<std::str::Lines, fn(&str) -> i32> {
 fn part1(input: &str) -> Result<i32> {
     // TODO: how to prevent integer overflow when summing?
     // https://doc.rust-lang.org/std/primitive.u32.html#method.saturating_add
-    Ok(get_nums(input).sum())
+    Ok(get_nums(input)?.sum())
 }
 
 // Find the value of the first ongoing sum that repeats twice, and looping through the nums if
@@ -49,7 +46,7 @@ fn part2(input: &str) -> Result<i32> {
 
     // TODO: Is there a way to do this without a loop?
     loop {
-        if get_nums(input)
+        if get_nums(input)?
             .find(|num| {
                 freq += *num;
                 if seen.contains(&freq) {
