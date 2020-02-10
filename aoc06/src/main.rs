@@ -23,7 +23,7 @@ fn main() -> Result<()> {
 }
 
 fn find_largest_finite_area(locations: &Vec<Location>, coords: &Vec<Coordinate>) -> u32 {
-    let bounding_coord_ids = Coordinate::get_bounding_coord_ids(coords);
+    let bounding_coord_ids = Coordinate::get_bounding_coord_ids(coords, locations);
     let map = locations
         .iter()
         .filter(|location| {
@@ -172,16 +172,21 @@ impl Coordinate {
     }
 
     // TODO: bug here! don't just get the corners, but get anything that is on an outer edge!
-    fn get_bounding_coord_ids(coords: &Vec<Coordinate>) -> HashSet<CoordinateId> {
+    fn get_bounding_coord_ids(
+        coords: &Vec<Coordinate>,
+        locations: &Vec<Location>,
+    ) -> HashSet<CoordinateId> {
         let (upper_left, lower_right) = Coordinate::get_grid_bounds(coords);
-        coords.iter().fold(HashSet::new(), |mut set, coord| {
-            let point = &coord.point;
+        locations.iter().fold(HashSet::new(), |mut set, location| {
+            let point = &location.point;
             if point.x == upper_left.x
                 || point.x == lower_right.x
                 || point.y == upper_left.y
                 || point.y == lower_right.y
             {
-                set.insert(coord.id);
+                if let Some(closest_coordinate_id) = location.closest_coordinate {
+                    set.insert(closest_coordinate_id);
+                }
             }
             set
         })
