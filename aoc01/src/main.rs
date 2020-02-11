@@ -65,7 +65,10 @@ fn part2(input: &str) -> Result<i32> {
 
 #[test]
 fn test_part1() -> Result<()> {
-    let s = "0\n1\n-5\n+3";
+    let s = "0\n\
+    1\n\
+    -5\n\
+    +3";
     assert_eq!(part1(s)?, -1);
     println!("test_part1 passed!");
     Ok(())
