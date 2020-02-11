@@ -19,12 +19,19 @@ fn main() -> Result<()> {
         "largest finite area size: {}",
         find_largest_finite_area(&locations, &coords)
     )?;
+    writeln!(
+        std::io::stdout(),
+        "coord accessible area: {}",
+        find_coord_accessible_area(&locations, 10000)
+    )?;
     Ok(())
 }
 
+// Part 1
+
 fn find_largest_finite_area(locations: &Vec<Location>, coords: &Vec<Coordinate>) -> u32 {
     let bounding_coord_ids = Coordinate::get_bounding_coord_ids(coords, locations);
-    let map = locations
+    locations
         .iter()
         .filter(|location| {
             if let Some(closest_coordinate_id) = location.closest_coordinate {
@@ -38,13 +45,20 @@ fn find_largest_finite_area(locations: &Vec<Location>, coords: &Vec<Coordinate>)
                 *map.entry(closest_coordinate_id).or_default() += 1;
             }
             map
-        });
-    //    assert_eq!(map.keys().len(), 2);
-    println!("map: {:?}", map);
-    map.iter()
+        })
+        .iter()
         .max_by_key(|(_, &freq)| freq)
         .map(|(_, freq)| *freq)
         .expect("there must be enough locations!")
+}
+
+// Part 1
+
+fn find_coord_accessible_area(locations: &Vec<Location>, limit: u32) -> u32 {
+    locations
+        .iter()
+        .filter(|location| location.total_distance < limit)
+        .count() as u32
 }
 
 fn parse_coordinates(input: &str) -> Result<Vec<Coordinate>> {
@@ -63,8 +77,12 @@ fn parse_coordinates(input: &str) -> Result<Vec<Coordinate>> {
 #[derive(Debug)]
 struct Location {
     closest_coordinate: Option<CoordinateId>,
+    total_distance: u32,
     point: Point,
 }
+
+// Returns locations containing their x,y position, their closest coordinate, and their sum of total
+// distance to all coordinates
 
 fn parse_locations(coords: &Vec<Coordinate>) -> Vec<Location> {
     let (upper_left, lower_right) = Coordinate::get_grid_bounds(coords);
@@ -76,6 +94,7 @@ fn parse_locations(coords: &Vec<Coordinate>) -> Vec<Location> {
                     closest_coordinate: point
                         .get_closest_coordinate(coords)
                         .and_then(|coordinate| Some(coordinate.id)),
+                    total_distance: point.get_sum_distance(coords),
                     point,
                 }
             })
@@ -129,7 +148,7 @@ impl Point {
         closest_coord
     }
 
-    // Returns the Manhattan Distance between two Points
+    // Returns the Manhattan Distance between this Point and another Point
     fn get_distance(&self, other: &Point) -> u32 {
         let d_x = if self.x > other.x {
             self.x.saturating_sub(other.x)
@@ -143,6 +162,14 @@ impl Point {
         };
 
         d_x.saturating_add(d_y)
+    }
+
+    // Returns the sum of the Manhattan Distance between this Point and all of the Coordinates
+    fn get_sum_distance(&self, coords: &Vec<Coordinate>) -> u32 {
+        coords
+            .iter()
+            .map(|coord| self.get_distance(&coord.point))
+            .sum()
     }
 }
 
@@ -171,7 +198,6 @@ impl Coordinate {
         (Point { x: min_x, y: min_y }, Point { x: max_x, y: max_y })
     }
 
-    // TODO: bug here! don't just get the corners, but get anything that is on an outer edge!
     fn get_bounding_coord_ids(
         coords: &Vec<Coordinate>,
         locations: &Vec<Location>,
@@ -207,5 +233,22 @@ fn test_find_largest_finite_area() -> Result<()> {
     let locations = parse_locations(&coords);
     assert_eq!(find_largest_finite_area(&locations, &coords), 17);
     println!("find_largest_finite_area passed!");
+    Ok(())
+}
+
+#[test]
+fn test_find_coord_accessible_area() -> Result<()> {
+    let s = "\
+        1, 1\n\
+        1, 6\n\
+        8, 3\n\
+        3, 4\n\
+        5, 5\n\
+        8, 9\
+    ";
+    let coords = parse_coordinates(&s)?;
+    let locations = parse_locations(&coords);
+    assert_eq!(find_coord_accessible_area(&locations, 32), 16);
+    println!("coord_accessible_area passed!");
     Ok(())
 }
