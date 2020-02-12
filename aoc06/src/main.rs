@@ -52,7 +52,7 @@ fn find_largest_finite_area(locations: &Vec<Location>, coords: &Vec<Coordinate>)
         .expect("there must be enough locations!")
 }
 
-// Part 1
+// Part 2
 
 fn find_coord_accessible_area(locations: &Vec<Location>, limit: u32) -> u32 {
     locations
