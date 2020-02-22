@@ -19,7 +19,7 @@ fn main() -> Result<()> {
     writeln!(
         std::io::stdout(),
         "topological sort: {}",
-        graph.topo_sort().into_iter().collect::<String>()
+        graph.iter_topo_sort().collect::<Result<String, String>>()?
     )?;
 
     Ok(())
@@ -36,35 +36,25 @@ struct Graph {
 }
 
 impl Graph {
-    // returns a topological sort of the nodes
-    fn topo_sort(&self) -> Vec<NodeId> {
-        let mut visited = HashSet::<NodeId>::new();
-        let mut sorted = Vec::<NodeId>::new();
-
-        loop {
-            if sorted.len() == self.nodes.len() {
-                return sorted;
-            }
-            if let Some(&node_id) = self
-                .nodes
-                .iter()
-                .filter(|&node_id| {
-                    let has_deps = if let Some(incoming_nodes) = self.incoming_list.get(node_id) {
-                        !incoming_nodes.is_subset(&visited)
-                    } else {
-                        // There are no nodes pointing to this node:
-                        false
-                    };
-                    !has_deps && !sorted.contains(&node_id)
-                })
-                .min()
-            {
-                visited.insert(node_id);
-                sorted.push(node_id);
-            } else {
-                panic!("Unable to find next node to visit - possible cycle detected");
-            }
-        }
+    // given a set of accessible nodes, returns a Vec of the next neighboring nodes
+    fn next_accessible_nodes(&self, accessible_nodes: &HashSet<NodeId>) -> HashSet<NodeId> {
+        self.nodes
+            .iter()
+            .filter_map(|&node_id| {
+                let has_deps = if let Some(incoming_nodes) = self.incoming_list.get(&node_id) {
+                    // All nodes pointing to this node have already been visited
+                    !incoming_nodes.is_subset(&accessible_nodes)
+                } else {
+                    // There are no nodes pointing to this node:
+                    false
+                };
+                if !has_deps && !accessible_nodes.contains(&node_id) {
+                    Some(node_id)
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<NodeId>>()
     }
 
     fn parse(input: &str) -> Result<Self> {
@@ -94,6 +84,39 @@ impl Graph {
             nodes,
         })
     }
+
+    pub fn iter_topo_sort(&self) -> IterGraph {
+        IterGraph {
+            visited: HashSet::new(),
+            graph: &self,
+        }
+    }
+}
+
+struct IterGraph<'a> {
+    visited: HashSet<NodeId>,
+    graph: &'a Graph,
+}
+
+// Iterates over nodes in a topological sorted order
+impl<'a> Iterator for IterGraph<'a> {
+    // Represents an ordered set of Nodes that have the same topological ordering
+    type Item = Result<NodeId, String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.visited.len() == self.graph.nodes.len() {
+            return None;
+        }
+        let next_accessible = self.graph.next_accessible_nodes(&self.visited);
+        if let Some(&next) = next_accessible.iter().min() {
+            self.visited.insert(next);
+            Some(Ok(next))
+        } else {
+            return Some(Err(String::from(
+                "Unable to find next node to visit - possible cycle detected",
+            )));
+        }
+    }
 }
 
 struct Edge(NodeId, NodeId);
@@ -120,7 +143,7 @@ impl FromStr for Edge {
 }
 
 #[test]
-fn test_get_steps() -> Result<()> {
+fn test_topo_sort() -> Result<()> {
     let s = "\
         Step C must be finished before step A can begin.\n\
         Step C must be finished before step F can begin.\n\
@@ -131,15 +154,13 @@ fn test_get_steps() -> Result<()> {
         Step F must be finished before step E can begin.\
     ";
     let graph = Graph::parse(&s)?;
-    assert_eq!(graph.topo_sort(), vec!('C', 'A', 'B', 'D', 'F', 'E'));
+    assert_eq!(
+        graph
+            .iter_topo_sort()
+            .collect::<Result<Vec<NodeId>, String>>()?,
+        vec!('C', 'A', 'B', 'D', 'F', 'E')
+    );
+    println!("test_topo_sort passed");
     Ok(())
 }
 
-#[test]
-fn test_subset() -> Result<()> {
-    let sub = HashSet::<u32>::new();
-    let sup = HashSet::<u32>::new();
-    assert_eq!(sub.is_subset(&sup), true);
-    println!("subset test passed!");
-    Ok(())
-}
