@@ -22,6 +22,13 @@ fn main() -> Result<()> {
         graph.iter_topo_sort().collect::<Result<String, String>>()?
     )?;
 
+    let workers = WorkerPool::new(5);
+
+    writeln!(
+        std::io::stdout(),
+        "time to process: {}",
+        workers.run_simulation(&graph)
+    )?;
     Ok(())
 }
 
@@ -138,7 +145,149 @@ impl FromStr for Edge {
         // but only on nightly b/c NoneError is experimental: https://doc.rust-lang.org/std/option/struct.NoneError.html
         let from = char::try_from(caps["from"].chars().next().unwrap())?;
         let to = char::try_from(caps["to"].chars().next().unwrap())?;
+        // TODO: how to implement error handling so that we can add this check???
+        //        if !from.is_ascii_uppercase() || !to.is_ascii_uppercase() {
+        //            return Err(format!("Node should be ascii uppercase: {}, {}", to, from));
+        //        }
         Ok(Edge(from, to))
+    }
+}
+
+type Time = u32;
+type WorkerId = usize;
+
+#[derive(PartialEq, Debug)]
+enum Status {
+    Idle,
+    Busy { until: Time, node: NodeId }, // busy until this time
+}
+
+struct WorkerPool {
+    //    num_workers: u8,
+    workers: Vec<Status>,
+    is_simple: bool,
+    time: Time,
+    processed: HashSet<NodeId>,
+    in_progress: HashSet<NodeId>,
+}
+
+impl WorkerPool {
+    fn new(n: u8) -> Self {
+        WorkerPool {
+            workers: (0..n).map(|_| Status::Idle).collect::<Vec<Status>>(),
+            is_simple: false,
+            time: 0,
+            processed: HashSet::<NodeId>::new(),
+            in_progress: HashSet::<NodeId>::new(),
+        }
+    }
+
+    fn simple(mut self) -> Self {
+        self.is_simple = true;
+        self
+    }
+
+    // 'A' -> 61 (or 1 if simple)
+    // 'B' -> 62 (or 2 if simple)
+    // Ascii for 'A' is 65
+
+    fn get_node_duration(node: NodeId, is_simple: bool) -> Time {
+        let ascii_value = u32::from(node);
+        if is_simple {
+            ascii_value - 64
+        } else {
+            ascii_value - 4
+        }
+    }
+
+    fn update_processed_nodes(&mut self) {
+        use Status::*;
+
+        // update our nodes that have finished processing
+        let current_time = self.time;
+        let mut processed = std::mem::replace(&mut self.processed, HashSet::new());
+        let mut in_progress = std::mem::replace(&mut self.in_progress, HashSet::new());
+        self.workers
+            .iter_mut()
+            .filter(|status| match status {
+                Idle => false,
+                Busy { until, .. } => until <= &current_time,
+            })
+            .for_each(|status| {
+                if let Busy {
+                    node: finished_node,
+                    ..
+                } = status
+                {
+                    processed.insert(*finished_node);
+                    in_progress.remove(finished_node);
+                    *status = Idle;
+                } else {
+                    panic!("invalid state - we should be filtering these out!")
+                }
+            });
+        self.processed = processed;
+        self.in_progress = in_progress;
+    }
+
+    // process the nodes until either they run out or all of the workers are busy.
+
+    // If all of the workers are busy, advance the time until the shortest job is finished and exit.
+
+    fn process_second(&mut self, mut nodes: Vec<NodeId>) {
+        use Status::*;
+
+        // Update any new nodes that will now be processed
+        nodes.sort();
+
+        let mut in_progress = std::mem::replace(&mut self.in_progress, HashSet::new());
+        let updated_workers = self
+            .workers
+            .iter()
+            .enumerate()
+            .filter(|&(_worker_id, status)| status == &Idle)
+            .zip(nodes.iter())
+            .map(|((worker_id, _status), &node_id)| {
+                in_progress.insert(node_id);
+                let job_length = WorkerPool::get_node_duration(node_id, self.is_simple);
+
+                (
+                    worker_id,
+                    Busy {
+                        until: self.time + job_length,
+                        node: node_id,
+                    },
+                )
+            })
+            .collect::<Vec<(WorkerId, Status)>>();
+        self.in_progress = in_progress;
+
+        updated_workers.into_iter().for_each(|(worker_id, status)| {
+            self.workers[worker_id] = status;
+        });
+    }
+
+    // Gets the time it takes to complete the graph in topological order, while delegating to
+    // workers
+
+    fn run_simulation(mut self, graph: &Graph) -> u32 {
+        self.time = 0;
+        loop {
+            self.update_processed_nodes();
+            let nodes_ready_for_workers = graph
+                .next_accessible_nodes(&self.processed)
+                .into_iter()
+                // Omit nodes that are already in progress:
+                .filter(|node_id| !self.in_progress.contains(node_id))
+                .collect::<Vec<NodeId>>();
+
+            self.process_second(nodes_ready_for_workers);
+            if self.workers.iter().all(|status| status == &Status::Idle) {
+                break;
+            }
+            self.time += 1;
+        }
+        self.time
     }
 }
 
@@ -164,3 +313,24 @@ fn test_topo_sort() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_completion_time() -> Result<()> {
+    let s = "\
+        Step C must be finished before step A can begin.\n\
+        Step C must be finished before step F can begin.\n\
+        Step A must be finished before step B can begin.\n\
+        Step A must be finished before step D can begin.\n\
+        Step B must be finished before step E can begin.\n\
+        Step D must be finished before step E can begin.\n\
+        Step F must be finished before step E can begin.\
+    ";
+    let graph = Graph::parse(&s)?;
+    let mut workers = WorkerPool::new(2);
+    workers = workers.simple();
+
+    assert_eq!(workers.run_simulation(&graph), 15);
+    // Non-simple:
+    //    assert_eq!(workers.run_simulation(&graph), 258);
+    println!("test_completion_time passed");
+    Ok(())
+}
