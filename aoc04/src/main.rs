@@ -125,7 +125,7 @@ fn get_sleep_schedule(events: &Vec<Event>) -> SleepSchedule {
                 let sleep_minute = sleep_time.minute;
                 let wake_minute = wake_time.minute;
                 for min in sleep_minute..wake_minute {
-                    // TODO: case a min as a usize?
+                    // TODO: cast a min as a usize?
                     schedule[min as usize] += 1;
                 }
             }

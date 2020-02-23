@@ -200,11 +200,16 @@ impl WorkerPool {
         }
     }
 
+    // update our nodes that have finished processing
+
     fn update_processed_nodes(&mut self) {
         use Status::*;
 
-        // update our nodes that have finished processing
         let current_time = self.time;
+
+        // TODO: How to avoid "cannot move out of mutable reference" without having to move them
+        // here?
+
         let mut processed = std::mem::replace(&mut self.processed, HashSet::new());
         let mut in_progress = std::mem::replace(&mut self.in_progress, HashSet::new());
         self.workers
