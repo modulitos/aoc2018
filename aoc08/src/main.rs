@@ -119,3 +119,35 @@ fn test_metadata_sum() -> Result<()> {
     println!("test_metadata_sum passed.");
     Ok(())
 }
+
+fn lines_from_file(filename: impl AsRef<Path>) -> Vec<String> {
+    let file = File::open(filename).expect("no such file");
+    let buf = BufReader::new(file);
+    buf.lines()
+        .map(|l| l.expect("Could not parse line"))
+        .collect()
+}
+
+#[test]
+fn test_sample_input_metadata() -> Result<()> {
+    let file_name = PathBuf::from("./input/input.txt");
+    println!("file_name: {:?}", file_name);
+    // gets the file path relative to the cargo project dir
+    let file_path = canonicalize(&file_name)?;
+    println!("file_path: {:?}", file_path);
+    let input = &lines_from_file(file_path)[0];
+    let tree = Tree::parse(&input)?;
+    assert_eq!(tree.sum_metadata(), 37905);
+    println!("test_sample_metadata_sum passed.");
+    Ok(())
+}
+
+// #[test]
+fn test_root_node_value() -> Result<()> {
+    let input = "2 3 0 3 10 11 12 1 1 0 1 99 2 1 1 2";
+    let tree = Tree::parse(&input)?;
+    assert_eq!(tree.get_root_value(), 66);
+    println!("test_root_node_value passed.");
+    Ok(())
+}
+
