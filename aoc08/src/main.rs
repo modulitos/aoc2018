@@ -1,8 +1,8 @@
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
-use std::iter::Enumerate;
 use std::num::ParseIntError;
-use std::ops::Add;
-use std::str::{SplitAsciiWhitespace, SplitWhitespace};
+use std::str::SplitAsciiWhitespace;
+use std::iter::FromIterator;
 
 type Error = std::boxed::Box<dyn std::error::Error>;
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -16,11 +16,7 @@ fn main() -> Result<()> {
     writeln!(
         std::io::stdout(),
         "sum of metadata: {}",
-        graph
-            .nodes
-            .iter()
-            .flat_map(|node| node.metadata.clone())
-            .sum::<u32>()
+        graph.sum_metadata(),
     )?;
 
     Ok(())
@@ -42,21 +38,21 @@ impl Node {
     fn parse(
         mut iter: SplitAsciiWhitespace,
         mut id: NodeId,
-    ) -> Result<(Self, Vec<Self>, SplitAsciiWhitespace)> {
+    ) -> Result<(Self, HashMap<NodeId, Self>, SplitAsciiWhitespace)> {
         if let (Some(children_str), Some(metadata_str)) = (iter.next(), iter.next()) {
             let (num_children, num_metadata) =
                 (children_str.parse::<u32>()?, metadata_str.parse::<usize>()?);
             let curr_node_id = id;
             id += 1;
-            let mut nodes = Vec::<Node>::new();
+            let mut nodes = HashMap::<NodeId, Node>::new();
             let mut children = vec![];
             for _ in 0..num_children {
                 let (child_node, mut new_nodes, next_iter) = Node::parse(iter, id)?;
                 iter = next_iter; // re-assign the input for the next iteration
                 id = id.saturating_add(children.len() as u16).saturating_add(1);
                 children.push(child_node.id);
-                nodes.push(child_node);
-                nodes.append(&mut new_nodes);
+                nodes.insert(child_node.id, child_node);
+                nodes.extend(new_nodes.into_iter());
             }
             let node = Node {
                 id: curr_node_id,
@@ -76,8 +72,7 @@ impl Node {
 }
 
 struct Tree {
-    // TODO: this should be a hashmap of NodeId to node
-    nodes: Vec<Node>,
+    nodes: HashMap<NodeId, Node>,
     root: NodeId,
 }
 
@@ -85,26 +80,41 @@ impl Tree {
     fn parse(input: &str) -> Result<Self> {
         let (root, mut nodes, ..) = Node::parse(input.split_ascii_whitespace(), 0)?;
         let root_id = root.id;
-        nodes.push(root);
+        nodes.insert(root.id, root);
         println!("nodes: {:?}", nodes);
         Ok(Tree {
             nodes,
             root: root_id,
         })
     }
+
+    fn sum_metadata(&self) -> u32 {
+        self.nodes
+            .values()
+            .flat_map(|node| node.metadata.clone())
+            .sum::<u32>()
+    }
 }
 
 #[test]
 fn test_metadata_sum() -> Result<()> {
     let input = "2 3 0 3 10 11 12 1 1 0 1 99 2 1 1 2";
-    let graph = Tree::parse(&input)?;
+    let tree = Tree::parse(&input)?;
     assert_eq!(
-        graph
-            .nodes
-            .iter()
-            .flat_map(|node| node.metadata.clone())
-            .sum::<u32>(),
+        tree.sum_metadata(),
         138
+    );
+    assert_eq!(
+        tree.nodes.keys().collect::<HashSet<&NodeId>>(),
+        HashSet::<&NodeId>::from_iter(vec![0, 1, 2, 3].iter())
+    );
+    assert_eq!(
+        tree.nodes.get(&0).unwrap().children,
+        vec![1, 2]
+    );
+    assert_eq!(
+        tree.nodes.get(&2).unwrap().children,
+        vec![3]
     );
     println!("test_metadata_sum passed.");
     Ok(())
