@@ -45,7 +45,7 @@ fn get_guards(input: &str) -> Result<Vec<Guard>> {
         } else {
             match cur_guard_id {
                 // TODO: replace these panics with proper error handling
-                None => panic!("GuardStart event has no guard_id"),
+                None => return Err(Error::from("GuardStart event has no guard_id")),
                 Some(guard_id) => grouped_events.entry(guard_id).or_default().push(ev),
             }
         }
@@ -54,11 +54,14 @@ fn get_guards(input: &str) -> Result<Vec<Guard>> {
     // iterate over all the events for each guard, to get populated Guards with minutes
     let guards: Vec<Guard> = grouped_events
         .iter()
-        .map(|(&guard_id, events)| Guard {
-            id: guard_id,
-            sleeps: get_sleep_schedule(events),
+        .map(|(&guard_id, events)| {
+            let sleeps = get_sleep_schedule(events)?;
+            Ok(Guard {
+                id: guard_id,
+                sleeps,
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
     Ok(guards)
 }
 
@@ -105,7 +108,7 @@ fn find_guard_minute_most_frequently_asleep(guards: &Vec<Guard>) -> Result<u32> 
 
 type SleepSchedule = [u32; 60];
 
-fn get_sleep_schedule(events: &Vec<Event>) -> SleepSchedule {
+fn get_sleep_schedule(events: &Vec<Event>) -> Result<SleepSchedule> {
     let mut schedule = [0; 60];
     let mut iter = events.iter();
     loop {
@@ -130,10 +133,11 @@ fn get_sleep_schedule(events: &Vec<Event>) -> SleepSchedule {
                 }
             }
             (None, None) => break,
-            _ => panic!("invalid events!"),
+            _ => return Err(Error::from(format!("invalid events!"))),
+
         }
     }
-    schedule
+    Ok(schedule)
 }
 
 type GuardId = u32;

@@ -145,10 +145,14 @@ impl FromStr for Edge {
         // but only on nightly b/c NoneError is experimental: https://doc.rust-lang.org/std/option/struct.NoneError.html
         let from = char::try_from(caps["from"].chars().next().unwrap())?;
         let to = char::try_from(caps["to"].chars().next().unwrap())?;
-        // TODO: how to implement error handling so that we can add this check???
-        //        if !from.is_ascii_uppercase() || !to.is_ascii_uppercase() {
-        //            return Err(format!("Node should be ascii uppercase: {}, {}", to, from));
-        //        }
+
+        if !from.is_ascii_uppercase() || !to.is_ascii_uppercase() {
+            return Err(Error::from(format!(
+                "Node should be ascii uppercase: {}, {}",
+                to, from
+            )));
+        }
+
         Ok(Edge(from, to))
     }
 }

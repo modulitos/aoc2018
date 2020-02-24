@@ -76,12 +76,13 @@ impl Node {
                 children.push(child_node_id);
 
                 // Ideally, we'd use HashMap.extend, but we want to make sure we aren't overwriting anything here.
-                new_nodes.into_iter().for_each(|(node_id, node)| {
-                    if let Some(old_node) = nodes.insert(node_id, node) {
-                        // TODO: error instead of panic:
-                        panic!("collision when inserting node: {:?}", old_node);
+                new_nodes.into_iter().map(|(node_id, node)| {
+                    if nodes.insert(node_id, node).is_some() {
+                        Err(Error::from(format!("collision when inserting node: {}", node_id)))
+                    } else {
+                        Ok(())
                     }
-                })
+                }).collect::<Result<_>>()?;
             }
             let node = Node {
                 id: curr_node_id,
@@ -93,12 +94,11 @@ impl Node {
                 children,
             };
             if let Some(node) = nodes.insert(node.id, node) {
-                panic!("overwriting node id: {}", node.id);
+                return Err(Error::from(format!("overwriting node id: {}", node.id)));
             }
             Ok((curr_node_id, nodes, iter))
         } else {
-            // TODO: make this an error instead of a panic
-            panic!("Invalid iterator size")
+            Err(Error::from(format!("Invalid iterator size")))
         }
     }
 }
@@ -114,7 +114,7 @@ impl Tree {
     fn parse(input: &str) -> Result<Self> {
         let (root, nodes, mut iter) = Node::parse(input.split_ascii_whitespace(), 0)?;
         if let Some(_) = iter.next() {
-            panic!("iter should be empty now.");
+            return Err(Error::from("iter should be empty now."));
         }
         Ok(Tree { nodes, root })
     }
@@ -152,7 +152,7 @@ impl Tree {
         let num_children = node.children.len() as u32;
         let value = if num_children == 0 {
             // get sum of node's metadata:
-            node.metadata.iter().map(|&id| u64::from(id)).sum::<Sum>()
+            node.metadata.iter().map(|&id| u64::from(id)).sum()
         } else {
             // get value of the node's children:
             // let mut temp_cache = std::mem::replace(&mut cache, HashMap::new());
