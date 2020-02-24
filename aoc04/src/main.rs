@@ -44,7 +44,6 @@ fn get_guards(input: &str) -> Result<Vec<Guard>> {
             cur_guard_id = Some(guard_id);
         } else {
             match cur_guard_id {
-                // TODO: replace these panics with proper error handling
                 None => return Err(Error::from("GuardStart event has no guard_id")),
                 Some(guard_id) => grouped_events.entry(guard_id).or_default().push(ev),
             }
