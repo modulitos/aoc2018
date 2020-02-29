@@ -15,8 +15,7 @@ fn main() -> Result<()> {
 
     let game = input.parse::<Game>()?;
 
-    let game_2 = Game::new(game.players.len(),
-                           game.marbles * 100);
+    let game_2 = Game::new(game.players.len(), game.marbles * 100);
     writeln!(
         std::io::stdout(),
         "winning score: {}",
@@ -102,6 +101,8 @@ impl Circle {
         Circle { map, current: 0 }
     }
 
+    // Returns a vec representing the circle of marbles. For testing only.
+
     fn get_vec(&self) -> Vec<MarbleId> {
         let mut curr = self.current;
         let mut vec = vec![curr];
@@ -116,56 +117,74 @@ impl Circle {
     }
 
     // Takes a turn in the game, returning the score for that turn.
-    fn turn(&mut self, new: u32) -> Score {
+    fn turn(&mut self, new: MarbleId) -> Score {
         let new_id = new;
 
         if new_id % 23 == 0 {
             // Remove the marble that is 7 marbles counter clockwise of the current marble.
-            let mut curr_id = self.current;
-            for _ in 0..7 {
-                curr_id = self.map.get(&curr_id).unwrap().prev;
-            }
-            let remove_marble = self.map.get_mut(&curr_id).unwrap();
-            let remove_marble_points = remove_marble.id;
-            self.current = remove_marble.next;
-            let prev_id = remove_marble.prev;
-            let next_id = remove_marble.next;
-
-            // remove the marble:
-            self.map.remove(&curr_id);
-
-            // update the prev/next marbles to excise the references:
-            let prev = self.map.get_mut(&prev_id).unwrap();
-            prev.next = next_id;
-            let next = self.map.get_mut(&next_id).unwrap();
-            next.prev = prev_id;
-
-            new_id + remove_marble_points
+            let remove_id = self.get_counter_clockwise(7);
+            let marble_to_remove = self.map.get_mut(&remove_id).unwrap();
+            self.current = marble_to_remove.next;
+            self.remove_marble(&remove_id);
+            new_id + remove_id
         } else {
-            // Insert the new marble between the marbles that are between 1 and 2 marbles clockwise
-
-            let current_marble = self.map.get(&self.current).unwrap();
-            let prev_id = current_marble.next;
-            let prev = self.map.get_mut(&prev_id).unwrap();
-            let next_id = prev.next;
-            prev.next = new_id;
-            let next = self.map.get_mut(&next_id).unwrap();
-            next.prev = new_id;
-
+            let prev_id = self.get_clockwise(1);
+            self.insert_marble_after(prev_id, new_id);
             self.current = new_id;
-
-            self.map.insert(
-                new_id,
-                Marble {
-                    id: new_id,
-                    prev: prev_id,
-                    next: next_id,
-                },
-            );
             0
         }
     }
+
+    fn get_counter_clockwise(&self, n: usize) -> MarbleId {
+        let mut curr_id = self.current;
+        for _ in 0..n {
+            curr_id = self.map.get(&curr_id).unwrap().prev;
+        }
+        curr_id
+    }
+
+    fn get_clockwise(&self, n: usize) -> MarbleId {
+        let mut curr_id = self.current;
+        for _ in 0..n {
+            curr_id = self.map.get(&curr_id).unwrap().next;
+        }
+        curr_id
+    }
+
+    fn insert_marble_after(&mut self, after: MarbleId, new_id: MarbleId) {
+        let prev = self.map.get_mut(&after).unwrap();
+
+        let next_id = prev.next;
+        prev.next = new_id;
+        let next = self.map.get_mut(&next_id).unwrap();
+        next.prev = new_id;
+
+        self.map.insert(
+            new_id,
+            Marble {
+                id: new_id,
+                prev: after,
+                next: next_id,
+            },
+        );
+    }
+
+    fn remove_marble(&mut self, id: &MarbleId) {
+        let marble_to_remove = self.map.get(&id).unwrap();
+        let [prev_id, next_id] = [marble_to_remove.prev, marble_to_remove.next];
+
+        // remove the marble:
+        self.map.remove(&id);
+
+        // update the prev/next marbles to excise the references:
+        let prev = self.map.get_mut(&prev_id).unwrap();
+        prev.next = next_id;
+        let next = self.map.get_mut(&next_id).unwrap();
+        next.prev = prev_id;
+    }
 }
+
+// Alternatively, we could use a linked list. But this Marble node should be fine for our purposes
 
 struct Marble {
     id: MarbleId, // This is also the point value of the marble
