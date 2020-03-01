@@ -154,7 +154,7 @@ impl FromStr for Grid {
     }
 }
 
-// Useful for printing the results
+// Useful for printing the results and debugging
 
 impl Display for Grid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -186,19 +186,6 @@ impl Point {
             (self.x - 1, self.y + 1),
             (self.x - 1, self.y - 1),
         ]
-    }
-}
-
-impl Hash for Point {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.x.hash(state);
-        self.y.hash(state);
-    }
-}
-
-impl PartialEq for Point {
-    fn eq(&self, other: &Point) -> bool {
-        self.x == other.x && self.y == other.y
     }
 }
 
@@ -241,7 +228,8 @@ fn test_message() -> Result<()> {
     assert_eq!(grid.points.len(), 31);
     assert_eq!(
         grid.get_message()?,
-        ("\
+        (
+            "\
             #...#..###\n\
             #...#...#.\n\
             #...#...#.\n\
@@ -251,7 +239,9 @@ fn test_message() -> Result<()> {
             #...#...#.\n\
             #...#..###\
         "
-        .to_string(), 3)
+            .to_string(),
+            3
+        )
     );
     println!("message test passed.");
     Ok(())
