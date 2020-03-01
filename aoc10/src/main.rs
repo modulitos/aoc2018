@@ -15,7 +15,9 @@ fn main() -> Result<()> {
     std::io::stdin().read_to_string(&mut input)?;
 
     let grid = input.parse::<Grid>()?;
-    writeln!(std::io::stdout(), "\n\nmessage:\n{}", grid.get_message()?)?;
+    let (message, seconds) = grid.get_message()?;
+    writeln!(std::io::stdout(), "\n\nmessage:\n{}", message)?;
+    writeln!(std::io::stdout(), "achieved in {} seconds", seconds)?;
     Ok(())
 }
 
@@ -62,13 +64,14 @@ impl Grid {
         )
     }
 
-    // iterates until we hit the message
+    // iterates until we hit the message.
+    // Returns a tuple of the message string, and the number of seconds to reach the message.
 
-    fn get_message(mut self) -> Result<String> {
-        for i in 0..1_000_000 {
+    fn get_message(mut self) -> Result<(String, u32)> {
+        for i in 1..1_000_000 {
             self.step();
             if self.message_found() {
-                return Ok(self.to_str());
+                return Ok((self.to_str(), i));
             }
         }
         Err(Error::from(
@@ -200,7 +203,7 @@ impl PartialEq for Point {
 }
 
 #[test]
-fn test() -> Result<()> {
+fn test_message() -> Result<()> {
     let input = "\
         position=< 9,  1> velocity=< 0,  2>
         position=< 7,  0> velocity=<-1,  0>
@@ -238,7 +241,7 @@ fn test() -> Result<()> {
     assert_eq!(grid.points.len(), 31);
     assert_eq!(
         grid.get_message()?,
-        "\
+        ("\
             #...#..###\n\
             #...#...#.\n\
             #...#...#.\n\
@@ -248,8 +251,8 @@ fn test() -> Result<()> {
             #...#...#.\n\
             #...#..###\
         "
-        .to_string()
+        .to_string(), 3)
     );
-    println!("parsed points.");
+    println!("message test passed.");
     Ok(())
 }
