@@ -15,9 +15,15 @@ fn main() -> Result<()> {
         recipes
             .get_10_scores_after_n(380621)
             // Reformat the array into a string for easier answer input
-            .into_iter()
+            .iter()
             .map(|&n| n.to_string())
             .collect::<String>()
+    )?;
+
+    writeln!(
+        std::io::stdout(),
+        "number of recipes from match: 380621: {:?}",
+        recipes.get_recipes_from_match(vec!(3, 8, 0, 6, 2, 1))
     )?;
     Ok(())
 }
@@ -39,24 +45,47 @@ impl Recipes {
         }
     }
 
-    fn generate_scores_up_to_n(&mut self, n: usize) {
-        while self.scores.len() <= n {
-            let sum = self.scores[self.position_1] + self.scores[self.position_2];
-            if sum >= 10 {
-                // sum 10's digit can't be more than 1:
-                self.scores.push(1);
-            }
-            self.scores.push(sum % 10);
+    fn step(&mut self) {
+        let sum = self.scores[self.position_1] + self.scores[self.position_2];
+        if sum >= 10 {
+            // sum 10's digit can't be more than 1:
+            self.scores.push(1);
+        }
+        self.scores.push(sum % 10);
 
-            // update the positions:
-            self.position_1 =
-                (self.position_1 + (self.scores[self.position_1] as usize) + 1) % self.scores.len();
-            self.position_2 =
-                (self.position_2 + (self.scores[self.position_2] as usize) + 1) % self.scores.len();
+        // update the positions:
+        self.position_1 =
+            (self.position_1 + (self.scores[self.position_1] as usize) + 1) % self.scores.len();
+        self.position_2 =
+            (self.position_2 + (self.scores[self.position_2] as usize) + 1) % self.scores.len();
+    }
+
+    fn get_recipes_from_match(&mut self, pattern: Vec<Score>) -> u32 {
+        let len = pattern.len();
+        let mut i = 0;
+        let mut curr = vec![0; len];
+        loop {
+            while self.scores.len() <= i + len {
+                self.step();
+            }
+            // update curr to be the last 5 items
+            // TODO: avoid copying this array by using ends_with:
+            // https://doc.rust-lang.org/std/primitive.slice.html#method.ends_with
+            curr.copy_from_slice(&self.scores[i..i + len]);
+            if curr == pattern {
+                return i as u32;
+            }
+            i += 1;
         }
     }
 
-    fn get_10_scores_after_n<'a>(&'a mut self, n: usize) -> &'a [Score] {
+    fn generate_scores_up_to_n(&mut self, n: usize) {
+        while self.scores.len() <= n {
+            self.step();
+        }
+    }
+
+    fn get_10_scores_after_n(&mut self, n: usize) -> &[Score] {
         if self.scores.len() >= n + 10 {
             &self.scores[n..n + 10]
         } else {
@@ -97,10 +126,16 @@ fn test_get_scores_after_n() -> Result<()> {
 }
 
 #[test]
-fn test_get_x_scores_before_n() -> Result<()> {
+fn test_get_recipes_count_before_pattern() -> Result<()> {
+    let mut recipes = Recipes::new();
     // 51589 first appears after 9 recipes.
+    assert_eq!(recipes.get_recipes_from_match(vec!(5, 1, 5, 8, 9)), 9);
     // 01245 first appears after 5 recipes.
+    assert_eq!(recipes.get_recipes_from_match(vec!(0, 1, 2, 4, 5)), 5);
     // 92510 first appears after 18 recipes.
+    assert_eq!(recipes.get_recipes_from_match(vec!(9, 2, 5, 1, 0)), 18);
     // 59414 first appears after 2018 recipes.
+    assert_eq!(recipes.get_recipes_from_match(vec!(5, 9, 4, 1, 4)), 2018);
+    println!("test_get_recipes_count_before_pattern.");
     Ok(())
 }
