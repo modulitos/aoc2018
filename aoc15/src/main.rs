@@ -17,6 +17,8 @@ fn main() -> Result<()> {
 
     let mut sim = input.parse::<Simulation>()?;
     writeln!(std::io::stdout(), "result of simulation: {:?}", sim.run())?;
+
+    writeln!(std::io::stdout(), "result of elf power: {:?}", Simulation::find_elf_power(&input)?)?;
     Ok(())
 }
 
@@ -198,12 +200,9 @@ impl Player {
             .collect::<Vec<Coordinate>>();
 
         if attack_coords.len() == 0 {
-            // println!("no targets found!");
             return PlayerAction::Stay;
         }
 
-        // println!("map: {:?}", pathfinder);
-        // println!("attack_coords: {:?}", attack_coords);
         if attack_coords.contains(&current_pos) {
             let target = self.get_opponent_target_from_attack_range(arena, players, &current_pos);
             return PlayerAction::Attack(target);
@@ -211,25 +210,21 @@ impl Player {
 
         // Choose the closest target, breaking ties with
         // readability order.
-        // TODO: can we do this without a forloop?
-        let mut target = Coordinate {
-            x: std::u16::MAX,
-            y: std::u16::MAX,
-        };
-        let mut steps = std::u16::MAX;
-        for curr_target in attack_coords.iter() {
-            if let Some(Some(link)) = pathfinder.map.get(&curr_target) {
-                if link.steps < steps || (link.steps == steps && curr_target < &target) {
-                    target = curr_target.clone();
-                    steps = link.steps;
-                }
+        let target = attack_coords.iter().filter(|coord| {
+            pathfinder.map.get(&coord).is_some()
+        }).min_by_key(|coord| {
+            if let Some(Some(link)) = pathfinder.map.get(coord) {
+                (link.steps, coord.clone())
+            } else {
+                // TODO: how can we avoid the if/let here, and unwrap/expect directly?
+                panic!("player's coord should not be within attacking range at this point.")
             }
-        }
+        }).unwrap().clone();
+
 
         // Unwrap the path to the target, and return the first step to take towards the chosen
         // opponent.
 
-        // println!("target: {:?}", target);
         let target = pathfinder.get_first_step_toward_target(target);
 
         if attack_coords.contains(&target) {
@@ -440,8 +435,6 @@ impl Simulation {
             > 1
         {
             self.tick();
-            // println!("after round {}:\n{}", self.rounds, self);
-            // println!("healths: {:?}\n", self.get_player_healths());
         }
         u32::from(
             self.players
@@ -451,7 +444,39 @@ impl Simulation {
         ) * u32::from(self.rounds)
     }
 
-    // for debugging only
+    fn set_elf_power(&mut self, power: u16) {
+        self.players
+            .values_mut()
+            .filter(|player| player.kind == PlayerKind::Elf)
+            .for_each(|elf| elf.power = power);
+    }
+
+    fn get_elf_counts(&self) -> u8 {
+        self.players
+            .values()
+            .filter(|player| player.kind == PlayerKind::Elf)
+            .count() as u8
+    }
+
+    // runs the simulation over and over until we find the minimum elf power required to defeat all
+    // Goblins without losing a single elf.
+
+    fn find_elf_power(input: &str) -> Result<u32> {
+        for power in 4..200 {  // power of 4 is the minimum
+            let mut sim = input.parse::<Simulation>()?;
+            sim.set_elf_power(power);
+            let starting_elves = sim.get_elf_counts();
+            let result = sim.run();
+            if starting_elves == sim.get_elf_counts() {
+                return Ok(result);
+            }
+        }
+        Err(Error::from(
+            "failed to find elf power after 200 iterations.",
+        ))
+    }
+
+    // for debugging/testing only
     fn get_player_healths(&self) -> Vec<u16> {
         self.players
             .values()
@@ -580,7 +605,6 @@ fn test_ticks() -> Result<()> {
         #########\n\
     ";
     let mut sim = round_1.parse::<Simulation>()?;
-    // println!("round 1:\n{}", sim);
     sim.tick();
     let round_2 = "\
         #########\n\
@@ -593,7 +617,6 @@ fn test_ticks() -> Result<()> {
         #.......#\n\
         #########\n\
     ";
-    // println!("round 2:\n{}", sim);
     assert_eq!(format!("{}", sim), round_2);
 
     let round_3 = "\
@@ -609,7 +632,6 @@ fn test_ticks() -> Result<()> {
     ";
 
     sim.tick();
-    // println!("round 3:\n{}", sim);
     assert_eq!(format!("{}", sim), round_3);
 
     let round_4 = "\
@@ -625,7 +647,6 @@ fn test_ticks() -> Result<()> {
     ";
 
     sim.tick();
-    // println!("round 4:\n{}", sim);
     assert_eq!(format!("{}", sim), round_4);
 
     println!("test_ticks passed.");
@@ -645,7 +666,6 @@ fn test_attacks() -> Result<()> {
     ";
 
     let mut sim = round_0.parse::<Simulation>()?;
-    // println!("round 1:\n{}", sim);
     sim.tick();
     let round_1 = "\
         #######\n\
@@ -656,7 +676,6 @@ fn test_attacks() -> Result<()> {
         #.....#\n\
         #######\n\
     ";
-    // println!("round 1:\n{}", sim);
     assert_eq!(format!("{}", sim), round_1);
     assert_eq!(
         sim.players
@@ -676,7 +695,6 @@ fn test_attacks() -> Result<()> {
         #.....#\n\
         #######\n\
     ";
-    // println!("round 2:\n{}", sim);
     assert_eq!(format!("{}", sim), round_2);
     assert_eq!(
         sim.players
@@ -775,14 +793,6 @@ fn test_simulation_2() -> Result<()> {
         #...#.#\n\
         #######\n\
     ";
-    // actual:
-    // #######
-    // #.E.E.#
-    // #.#E..#
-    // #E.##E#
-    // #.E.#.#
-    // #...#.#
-    // #######
 
     let mut sim = input.parse::<Simulation>()?;
     let result = sim.run();
@@ -791,6 +801,9 @@ fn test_simulation_2() -> Result<()> {
     assert_eq!(sim.rounds, 46); // actual: 45
     assert_eq!(sim.get_player_healths().iter().sum::<u16>(), 859); // 864
     assert_eq!(result, 39514);
+
+    // Find min elf power:
+    assert_eq!(Simulation::find_elf_power(&input)?, 31284);
 
     println!("test_simulation_2 passed.");
     Ok(())
@@ -813,6 +826,9 @@ fn test_run_simulation_3() -> Result<()> {
     assert_eq!(sim.get_player_healths(), vec![200, 98, 200, 95, 200]);
     assert_eq!(result, 27755);
 
+    // Find min elf power:
+    assert_eq!(Simulation::find_elf_power(&input)?, 3478);
+
     println!("test_run_simulation_3 passed.");
     Ok(())
 }
@@ -829,20 +845,15 @@ fn test_run_simulation_4() -> Result<()> {
         #######\n\
     ";
 
-    //      #######
-    //      #.....#
-    //      #.#G..#   G(200)
-    // -->  #.###.#
-    //      #.#.#.#
-    //      #G.G#G#   G(98), G(38), G(200)
-    //      #######
-
     let mut sim = input.parse::<Simulation>()?;
 
     let result = sim.run();
     assert_eq!(sim.rounds, 54);
     assert_eq!(sim.get_player_healths(), vec![200, 98, 38, 200]);
     assert_eq!(result, 28944);
+
+    // Find min elf power:
+    assert_eq!(Simulation::find_elf_power(&input)?, 6474);
 
     println!("test_run_simulation_4 passed.");
     Ok(())
@@ -861,15 +872,6 @@ fn test_run_simulation_5() -> Result<()> {
         #.....G.#\n\
         #########\n\
     ";
-    //      #########
-    //      #.G.....#   G(137)
-    //      #G.G#...#   G(200), G(200)
-    //      #.G##...#   G(200)
-    // -->  #...##..#
-    //      #.G.#...#   G(200)
-    //      #.......#
-    //      #.......#
-    //      #########
 
     let mut sim = input.parse::<Simulation>()?;
 
@@ -877,6 +879,9 @@ fn test_run_simulation_5() -> Result<()> {
     assert_eq!(sim.rounds, 20);
     assert_eq!(sim.get_player_healths(), vec![137, 200, 200, 200, 200]);
     assert_eq!(result, 18740);
+
+    // Find min elf power:
+    assert_eq!(Simulation::find_elf_power(&input)?, 1140);
 
     println!("test_run_simulation_5 passed.");
     Ok(())
