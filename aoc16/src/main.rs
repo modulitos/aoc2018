@@ -1,5 +1,5 @@
 use std::boxed::Box;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::convert::{From, TryFrom};
 use std::error;
 use std::io::{Read, Write};
@@ -14,14 +14,27 @@ fn main() -> Result<()> {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
 
-    let samples = input.parse::<Samples>()?;
-    writeln!(std::io::stdout(), "total samples: {:?}", samples.0.len())?;
-    writeln!(std::io::stdout(), "samples of three or more: {:?}", samples.samples_three_or_more()?)?;
+    let cpu = input.parse::<CPU>()?;
+    writeln!(
+        std::io::stdout(),
+        "total samples: {:?}",
+        cpu.samples.0.len()
+    )?;
+    writeln!(
+        std::io::stdout(),
+        "samples of three or more: {:?}",
+        cpu.samples.with_three_or_more_matches()?
+    )?;
+    writeln!(
+        std::io::stdout(),
+        "final registers state: {:?}",
+        cpu.evaluate_instructions()?
+    )?;
     Ok(())
 }
 
-#[derive(Copy, Clone)]
-// This is basically a ranged type.
+#[derive(Copy, Clone, Debug)]
+// This is just a ranged type.
 enum RegisterId {
     R0,
     R1,
@@ -41,9 +54,9 @@ impl RegisterId {
     }
 }
 
-type RegisterValue = u8;
+type RegisterValue = u32;
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 struct Registers([RegisterValue; 4]);
 
 impl Registers {
@@ -53,7 +66,6 @@ impl Registers {
             RegisterId::R1 => self.0[1],
             RegisterId::R2 => self.0[2],
             RegisterId::R3 => self.0[3],
-            // _ => panic!("register id must be within [0-4): {}", id),
         }
     }
     fn set(&mut self, id: RegisterId, value: RegisterValue) {
@@ -62,7 +74,6 @@ impl Registers {
             RegisterId::R1 => &mut self.0[1],
             RegisterId::R2 => &mut self.0[2],
             RegisterId::R3 => &mut self.0[3],
-            // _ => panic!("register id must be within [0-4): {}", id),
         };
         *register = value;
     }
@@ -88,7 +99,6 @@ impl FromStr for Registers {
 
 type InstructionValue = u8;
 
-// type OpcodeId = u8;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 enum OpcodeName {
     Addr,
@@ -217,83 +227,90 @@ struct Instruction {
     c: InstructionValue,
 }
 impl Instruction {
-    fn get_opcodes(&self) -> Result<Vec<Opcode>> {
+    // Get the opcode corresponding to the provided OpcodeName, using the values from the
+    // instruction set
+
+    fn get_opcode(&self, name: OpcodeName) -> Result<Opcode> {
         let a = self.a;
         let b = self.b;
         let c = self.c;
 
         use Op::*;
-        OpcodeName::iter()
-            .map(|&id| {
-                let mkid = RegisterId::from_number;
-                let mkval = RegisterValue::try_from;
+        let mkid = RegisterId::from_number;
+        let mkval = RegisterValue::try_from;
 
-                let kind = match id {
-                    OpcodeName::Addr => Addr {
-                        a: mkid(a)?,
-                        b: mkid(b)?,
-                    },
-                    OpcodeName::Addi => Addi {
-                        a: mkid(a)?,
-                        b: mkval(b)?,
-                    },
-                    OpcodeName::Mulr => Mulr {
-                        a: mkid(a)?,
-                        b: mkid(b)?,
-                    },
-                    OpcodeName::Muli => Muli {
-                        a: mkid(a)?,
-                        b: mkval(b)?,
-                    },
-                    OpcodeName::Banr => Banr {
-                        a: mkid(a)?,
-                        b: mkid(b)?,
-                    },
-                    OpcodeName::Bani => Bani {
-                        a: mkid(a)?,
-                        b: mkval(b)?,
-                    },
-                    OpcodeName::Borr => Borr {
-                        a: mkid(a)?,
-                        b: mkid(b)?,
-                    },
-                    OpcodeName::Bori => Bori {
-                        a: mkid(a)?,
-                        b: mkval(b)?,
-                    },
-                    OpcodeName::Setr => Setr { a: mkid(a)? },
-                    OpcodeName::Seti => Seti { a: mkval(a)? },
-                    OpcodeName::Gtir => Gtir {
-                        a: mkval(a)?,
-                        b: mkid(b)?,
-                    },
-                    OpcodeName::Gtri => Gtri {
-                        a: mkid(a)?,
-                        b: mkval(b)?,
-                    },
-                    OpcodeName::Gtrr => Gtrr {
-                        a: mkid(a)?,
-                        b: mkid(b)?,
-                    },
-                    OpcodeName::Eqir => Eqir {
-                        a: mkval(a)?,
-                        b: mkid(b)?,
-                    },
-                    OpcodeName::Eqri => Eqri {
-                        a: mkid(a)?,
-                        b: mkval(b)?,
-                    },
-                    OpcodeName::Eqrr => Eqrr {
-                        a: mkid(a)?,
-                        b: mkid(b)?,
-                    },
-                };
-                Ok(Opcode {
-                    id,
-                    kind,
-                    c: mkid(c)?,
-                })
-            })
+        let kind = match name {
+            OpcodeName::Addr => Addr {
+                a: mkid(a)?,
+                b: mkid(b)?,
+            },
+            OpcodeName::Addi => Addi {
+                a: mkid(a)?,
+                b: mkval(b)?,
+            },
+            OpcodeName::Mulr => Mulr {
+                a: mkid(a)?,
+                b: mkid(b)?,
+            },
+            OpcodeName::Muli => Muli {
+                a: mkid(a)?,
+                b: mkval(b)?,
+            },
+            OpcodeName::Banr => Banr {
+                a: mkid(a)?,
+                b: mkid(b)?,
+            },
+            OpcodeName::Bani => Bani {
+                a: mkid(a)?,
+                b: mkval(b)?,
+            },
+            OpcodeName::Borr => Borr {
+                a: mkid(a)?,
+                b: mkid(b)?,
+            },
+            OpcodeName::Bori => Bori {
+                a: mkid(a)?,
+                b: mkval(b)?,
+            },
+            OpcodeName::Setr => Setr { a: mkid(a)? },
+            OpcodeName::Seti => Seti { a: mkval(a)? },
+            OpcodeName::Gtir => Gtir {
+                a: mkval(a)?,
+                b: mkid(b)?,
+            },
+            OpcodeName::Gtri => Gtri {
+                a: mkid(a)?,
+                b: mkval(b)?,
+            },
+            OpcodeName::Gtrr => Gtrr {
+                a: mkid(a)?,
+                b: mkid(b)?,
+            },
+            OpcodeName::Eqir => Eqir {
+                a: mkval(a)?,
+                b: mkid(b)?,
+            },
+            OpcodeName::Eqri => Eqri {
+                a: mkid(a)?,
+                b: mkval(b)?,
+            },
+            OpcodeName::Eqrr => Eqrr {
+                a: mkid(a)?,
+                b: mkid(b)?,
+            },
+        };
+        Ok(Opcode {
+            id: name,
+            kind,
+            c: mkid(c)?,
+        })
+    }
+
+    // Returns a vec of all opcodes for instruction.
+
+    fn get_opcodes(&self) -> Result<Vec<Opcode>> {
+        OpcodeName::iter()
+            .map(|&id| self.get_opcode(id))
             .collect::<Result<Vec<Opcode>>>()
     }
 }
@@ -328,6 +345,8 @@ struct Sample {
 }
 
 impl Sample {
+    // Returns the names of the opcodes that match the sample's execution.
+
     fn opcode_matches(&self) -> Result<HashSet<OpcodeName>> {
         Ok(self
             .instruction
@@ -373,24 +392,99 @@ impl FromStr for Sample {
 struct Samples(Vec<Sample>);
 
 impl Samples {
-    fn samples_three_or_more(&self) -> Result<usize> {
-        Ok(self.0
+    fn with_three_or_more_matches(&self) -> Result<usize> {
+        Ok(self
+            .0
             .iter()
-            .map(|sample| {
-                Ok(sample.opcode_matches()?.len())
-            })
+            .map(|sample| Ok(sample.opcode_matches()?.len()))
             .collect::<Result<Vec<usize>>>()?
             .iter()
             .filter(|len| len >= &&3)
             .count())
     }
+
+    // Returns a mapping of the opcode numerical id's to the opcode's name
+
+    fn get_mapping_from_samples(&self) -> Result<HashMap<OpcodeId, OpcodeName>> {
+        type OpcodeAccumulator = HashMap<OpcodeId, HashSet<OpcodeName>>;
+
+        let mut map_acc = self.0.iter().try_fold::<OpcodeAccumulator, fn(
+            OpcodeAccumulator,
+            &Sample,
+        ) -> Result<OpcodeAccumulator>, Result<HashMap<OpcodeId, HashSet<OpcodeName>>>>(
+            OpcodeAccumulator::new(),
+            |mut map, sample| {
+                // union the existing and new sets of potential matches together
+                let set = map
+                    .entry(sample.instruction.opcode_id)
+                    .or_insert(HashSet::new());
+                *set = set
+                    .union(&sample.opcode_matches()?)
+                    .cloned()
+                    .collect::<HashSet<_>>();
+                Ok(map)
+            },
+        )?;
+
+        // Iterate over the map of accumulations, reducing each HashSet<OpcodeName> to a single
+        // OpcodeName
+        println!("map_acc: {:?}", map_acc);
+
+        for _ in 0..100 {
+            if map_acc.values().filter(|set| set.len() > 1).count() == 0 {
+                // map the single values that are left to a new map:
+                return Ok(map_acc
+                    .into_iter()
+                    .fold(HashMap::new(), |mut map, (id, set)| {
+                        if let Some(name) = set.into_iter().last() {
+                            map.insert(id, name);
+                        }
+                        map
+                    }));
+            } else {
+                let found = map_acc
+                    .values()
+                    .filter(|set| set.len() == 1)
+                    .flat_map(|set| set.clone())
+                    .collect::<HashSet<OpcodeName>>();
+                println!("removing found values from map_acc: {:?}", found);
+                map_acc
+                    .values_mut()
+                    .filter(|set| set.len() > 1)
+                    .for_each(|set| *set = set.difference(&found).cloned().collect());
+            }
+        }
+        Err(Error::from("Could not reduce the map after 100 iterations"))
+    }
 }
-impl FromStr for Samples {
+struct CPU {
+    samples: Samples,
+    instructions: Vec<Instruction>,
+}
+
+impl CPU {
+    fn evaluate_instructions(&self) -> Result<Registers> {
+        let map = self.samples.get_mapping_from_samples()?;
+        println!("map: {:?}", map);
+        println!("starting register calc...");
+        let mut registers = Registers([0; 4]);
+        self.instructions
+            .iter()
+            .map(|instruction| {
+                instruction.get_opcode(map.get(&instruction.opcode_id).unwrap().clone())
+            })
+            .collect::<Result<Vec<Opcode>>>()?
+            .into_iter()
+            .for_each(|opcode| registers = opcode.exec(&registers));
+        Ok(registers)
+    }
+}
+
+impl FromStr for CPU {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-
-        // TODO: is there a way to iterator over this string in chunks of 4, splitting on newlines?
+        // TODO: is there a way to iterate over this string in chunks of 4, splitting on newlines?
         // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=386698a9afe74ec4a16b4189b487959f
 
         let mut iter = s.lines().enumerate();
@@ -409,7 +503,16 @@ impl FromStr for Samples {
                 chunk.push(line);
             }
         }
-        Ok(Samples(samples))
+
+        let instructions = iter
+            .filter(|(i, line)| line.len() != 0)
+            .map(|(_, line)| line.parse::<Instruction>())
+            .collect::<Result<Vec<Instruction>>>()?;
+
+        Ok(Self {
+            samples: Samples(samples),
+            instructions,
+        })
     }
 }
 
@@ -432,7 +535,7 @@ fn test_opcode() -> Result<()> {
 }
 
 #[test]
-fn test_multi_opcodes() -> Result<()> {
+fn test_opcodes_matches() -> Result<()> {
     let input = "\
         Before: [3, 2, 1, 1]\n\
         9 2 1 2\n\
@@ -447,13 +550,59 @@ fn test_multi_opcodes() -> Result<()> {
         After:  [3, 2, 2, 1]\n\
         \n\
         \n\
-        This should not be parsed
     ";
 
-    let samples = input.parse::<Samples>()?;
-    assert_eq!(samples.samples_three_or_more()?, 2);
-    println!("test_multi_opcode passed.");
+    let cpu = input.parse::<CPU>()?;
+    assert_eq!(cpu.samples.with_three_or_more_matches()?, 2);
+    println!("test_opcode_matches passed.");
     Ok(())
 }
 
+#[test]
+fn test_evaluate_instructions() -> Result<()> {
+    let input = "\
+        Before: [3, 2, 1, 9]\n\
+        1 2 3 2\n\
+        After:  [3, 2, 4, 9]\n\
+        \n\
+        Before: [3, 2, 1, 1]\n\
+        2 0 3 1\n\
+        After:  [3, 9, 1, 1]\n\
+        \n\
+        Before: [2, 2, 3, 3]\n\
+        3 2 3 1\n\
+        After:  [2, 9, 3, 3]\n\
+        \n\
+        Before: [3, 2, 1, 1]\n\
+        4 2 1 2\n\
+        After:  [3, 2, 2, 1]\n\
+        \n\
+        \n\
+        1 2 2 3\n\
+        1 3 5 1\n\
+        1 3 5 0\n\
+        1 2 1 2\n\
+        2 1 3 1\n\
+        2 1 1 0\n\
+    ";
+    // registers state:
+    // 0 0 0 0
+    // 0 0 0 2
+    // 0 7 0 2
+    // 7 7 0 2
+    // 7 7 1 2
+    // 7 21 1 2
+    // 21 21 1 2
 
+    let cpu = input.parse::<CPU>()?;
+    let mut map = HashMap::new();
+    use OpcodeName::*;
+    map.insert(1, Addi);
+    map.insert(2, Muli);
+    map.insert(3, Mulr);
+    map.insert(4, Seti); // This instruction could have been mulr, addi, or seti
+    assert_eq!(cpu.samples.get_mapping_from_samples()?, map);
+    assert_eq!(cpu.evaluate_instructions()?, Registers([21, 21, 1, 2]));
+    println!("test_evaluate_instructions passed.");
+    Ok(())
+}
