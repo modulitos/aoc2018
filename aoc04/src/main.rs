@@ -171,6 +171,7 @@ impl FromStr for Event {
 
     fn from_str(s: &str) -> Result<Self> {
         lazy_static! {
+            // NOTE: the (?x) prefix allows us to escape white spaces
             static ref RE: Regex = Regex::new(
                 r"(?x)
                     \[

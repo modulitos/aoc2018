@@ -426,11 +426,13 @@ impl Samples {
             },
         )?;
 
-        // Iterate over the map of accumulations, reducing each HashSet<OpcodeName> to a single
-        // OpcodeName
-        println!("map_acc: {:?}", map_acc);
+        // Iterate over the map of accumulations, reducing each HashSet<OpcodeName> value until they
+        // becaome a single OpcodeName
 
-        for _ in 0..100 {
+        // number of uniequ mappings that we've found:
+        let mut prev_found_len = 0;
+
+        loop {
             if map_acc.values().filter(|set| set.len() > 1).count() == 0 {
                 // map the single values that are left to a new map:
                 return Ok(map_acc
@@ -447,14 +449,19 @@ impl Samples {
                     .filter(|set| set.len() == 1)
                     .flat_map(|set| set.clone())
                     .collect::<HashSet<OpcodeName>>();
-                println!("removing found values from map_acc: {:?}", found);
-                map_acc
-                    .values_mut()
-                    .filter(|set| set.len() > 1)
-                    .for_each(|set| *set = set.difference(&found).cloned().collect());
+
+                if found.len() == prev_found_len {
+                    return Err(Error::from("Could not find unique mappings"));
+                } else {
+                    prev_found_len = found.len();
+
+                    map_acc
+                        .values_mut()
+                        .filter(|set| set.len() > 1)
+                        .for_each(|set| *set = set.difference(&found).cloned().collect());
+                }
             }
         }
-        Err(Error::from("Could not reduce the map after 100 iterations"))
     }
 }
 struct CPU {
