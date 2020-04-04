@@ -38,12 +38,6 @@ fn main() -> Result<()> {
             }
 
             period_values.push(resource_value);
-            // writeln!(
-            //     std::io::stdout(),
-            //     "at minute: {}, resource value is: {}",
-            //     i,
-            //     resource_value,
-            // )?;
         }
 
         sim.run_minute();
@@ -69,12 +63,16 @@ struct Coordinate {
 
 #[derive(Debug)]
 struct Player {
+
+    // Leveraging trait objects using the state pattern here. Using enums would've been more
+    // concise, but I wanted to try out trait objects as a learning experience!
+
     kind: Box<dyn State>,
 }
 
 impl Player {
     fn from_byte(b: &u8) -> Result<Self> {
-        // TODO: How to DRY this up?
+        // TODO: Can we DRY this up?
         Ok(match b {
             b'#' => Self {
                 kind: Box::new(Lumberyard {}),
@@ -115,7 +113,6 @@ trait State {
     // Update the player based on the state of our neighbors
     fn transition_from_neighbors(&self, neighbors: Vec<&Box<dyn State>>) -> Box<dyn State>;
 
-    // Might be able to leverage enums here...
     fn is_openground(&self) -> bool {
         self.to_char() == '.'
     }
