@@ -2,24 +2,60 @@ use std::boxed::Box;
 use std::collections::{BTreeMap, HashMap};
 use std::error;
 use std::fmt::{Display, Formatter};
-use std::io::{Write, Read};
+use std::io::{Read, Write};
 use std::result;
 use std::str::FromStr;
 
 type Error = Box<dyn error::Error>;
 type Result<T, E = Error> = result::Result<T, E>;
 
+const START_PERIOD_AT_MINUTE: usize = 1_000;
+
 fn main() -> Result<()> {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
 
     let mut sim = input.parse::<Simulation>()?;
-    (0..10).for_each(|_| sim.run_minute());
+
+    // run until 1_000_000_000 minutes...
+    let mut period_values = vec![];
+    // assuming that a pattern emerges between 1_000 and 2_000 iterations...
+    for i in 0..(2_000) {
+        // part 1: get resource values after 10 mins:
+        if i == 10 {
+            writeln!(
+                std::io::stdout(),
+                "sim resource value after 10 minutes: {}",
+                sim.get_resource_value()
+            )?;
+        }
+
+        // part 2: leverage a repeating pattern to get resource value after 1_000_000_000 minutes
+        if i >= START_PERIOD_AT_MINUTE {
+            let resource_value = sim.get_resource_value();
+            if period_values.contains(&resource_value) {
+                break;
+            }
+
+            period_values.push(resource_value);
+            // writeln!(
+            //     std::io::stdout(),
+            //     "at minute: {}, resource value is: {}",
+            //     i,
+            //     resource_value,
+            // )?;
+        }
+
+        sim.run_minute();
+   }
+
+    let period_length = period_values.len();
+    let offset = (1_000_000_000 - START_PERIOD_AT_MINUTE) % period_length;
 
     writeln!(
         std::io::stdout(),
-        "sim resource value after 10 minutes: {}",
-        sim.get_resource_value()
+        "sim resource value after 1_000_000_000 minutes: {}",
+        period_values.get(offset).unwrap()
     )?;
 
     Ok(())
@@ -77,10 +113,7 @@ trait State {
     fn to_char(&self) -> char;
 
     // Update the player based on the state of our neighbors
-    fn transition_from_neighbors(
-        &self,
-        neighbors: Vec<&Box<dyn State>>,
-    ) -> Box<dyn State>;
+    fn transition_from_neighbors(&self, neighbors: Vec<&Box<dyn State>>) -> Box<dyn State>;
 
     // Might be able to leverage enums here...
     fn is_openground(&self) -> bool {
@@ -107,10 +140,7 @@ impl State for OpenGround {
         '.'
     }
 
-    fn transition_from_neighbors(
-        &self,
-        neighbors: Vec<&Box<dyn State>>,
-    ) -> Box<dyn State> {
+    fn transition_from_neighbors(&self, neighbors: Vec<&Box<dyn State>>) -> Box<dyn State> {
         let count_trees = neighbors.iter().filter(|state| state.is_trees()).count();
         if count_trees >= 3 {
             Box::new(Trees {})
@@ -125,10 +155,7 @@ impl State for Trees {
         '|'
     }
 
-    fn transition_from_neighbors(
-        &self,
-        neighbors: Vec<&Box<dyn State>>,
-    ) -> Box<dyn State> {
+    fn transition_from_neighbors(&self, neighbors: Vec<&Box<dyn State>>) -> Box<dyn State> {
         let count_lumberyards = neighbors
             .iter()
             .filter(|state| state.is_lumberyard())
@@ -146,10 +173,7 @@ impl State for Lumberyard {
         '#'
     }
 
-    fn transition_from_neighbors(
-        &self,
-        neighbors: Vec<&Box<dyn State>>,
-    ) -> Box<dyn State> {
+    fn transition_from_neighbors(&self, neighbors: Vec<&Box<dyn State>>) -> Box<dyn State> {
         let count_lumberyards = neighbors
             .iter()
             .filter(|state| state.is_lumberyard())
@@ -164,12 +188,12 @@ impl State for Lumberyard {
 }
 
 struct Simulation {
-    players: BTreeMap<Coordinate, Player>,
+    players: HashMap<Coordinate, Player>,
 }
 
 impl Simulation {
     fn run_minute(&mut self) {
-        let mut next_players = BTreeMap::new();
+        let mut next_players = HashMap::new();
 
         self.players.iter().for_each(|(coord, player)| {
             let neighbors = self.get_neighbors(coord);
@@ -243,7 +267,7 @@ impl FromStr for Simulation {
             })
             .collect::<Result<Vec<Vec<(Coordinate, Player)>>>>()?
             .into_iter()
-            .fold(BTreeMap::new(), |mut map, row| {
+            .fold(HashMap::new(), |mut map, row| {
                 row.into_iter().for_each(|(coord, player)| {
                     map.insert(coord, player);
                 });
