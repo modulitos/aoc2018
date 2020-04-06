@@ -13,14 +13,15 @@ lessons learned:
    - parsing using the `regex` crate
    - raw string, while escaping white spaces using the `(?x)` prefix
  - aoc08
-   - read a file
+   - read a line from a file
  - aoc15
    - leveraging BTreeMap for iterating over keys in sorted order
    - composition over inheritance, 
    - data-oriented design
  - aoc16   
+   - basic modules uses
    - iterating over enums
-   - simple string parsing
+   - simple string parsing (`trim_start_matches`, `trim_end_matches`)
    - composition over inheritance w/ enum algebraic datatypes
    - impl Display
  - aoc17
@@ -28,11 +29,15 @@ lessons learned:
    - returning declarative types using enums
  - aoc18
    - leveraging trait objects with the state pattern (probably overkill for this problem, but a fun exercise)
+ - aoc19
+   - vec destructuring assignment
+   - read file into a string
+   - optimizing machine code using opcodes and registers a hypothetical ISA
  
  
 Additional advent of code resources:
  
-Rust solutions by BurntSushi:
+Rust solutions by BurntSushi (I cross-checked all of my solutions against his):
 https://github.com/BurntSushi/advent-of-code
 
 solution megathread:
