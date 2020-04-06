@@ -225,6 +225,9 @@ impl Op {
         })
     }
 
+    // Given the state of registers, execute the Op (aka instruction) against those registers.
+    // Return the new value of the registers.
+
     pub fn exec(&self, registers: &Registers) -> Registers {
         let mut result = registers.clone();
         use Opcode::*;

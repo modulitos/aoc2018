@@ -13,6 +13,7 @@ fn main() -> Result<()> {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
 
+    // Part 1:
     let mut cpu = input.parse::<CPU>()?;
 
     writeln!(
@@ -21,6 +22,7 @@ fn main() -> Result<()> {
         cpu.run()
     )?;
 
+    // Part 2:
     let mut cpu_2 = input.parse::<CPU>()?;
 
     cpu_2.registers.set(RegisterId::R0, 1);
@@ -62,8 +64,9 @@ impl CPU {
         let ip = self.registers.get(self.ip_register) as usize;
 
         if ip == 3 {
-            // Optimization for solving part 2 - when IP=3, skip the opcodes and execute an optimized
-            // form instead.
+
+            // Optimization for solving part 2 - when IP=3, skip the opcodes and execute an
+            // optimized set of instructions instead.
 
             self.step_fast();
             return Ok(());
@@ -88,8 +91,8 @@ impl CPU {
     }
 
     // An optimized implementation of the machine code at instruction pointer #3. This was specific
-    // to my input, so every input will vary. For your input, you'll need to examine your assembly code for
-    // sequences of opcodes that are looping excessively, and find a way to optimize it.
+    // to my input, so every input will vary. For your input, you'll need to examine your machine
+    // code for sequences of opcodes that are looping excessively, and find a way to optimize it.
 
     fn step_fast(&mut self) {
 
