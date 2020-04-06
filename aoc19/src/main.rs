@@ -40,20 +40,66 @@ struct CPU {
 }
 
 impl CPU {
-    // Opitimize the assembly code. This was specific to my input, so every input will vary. You'll
-    // need to examine your assembly code for sequences of opcodes that are looping exccessively,
-    // and find a way to optimize them.
+
+    // Steps through our program until it halts, returning the value at register 0.
+
+    fn run(&mut self) -> u32 {
+        loop {
+            match self.step() {
+                Ok(()) => continue,
+                Err(r0_val) => return r0_val,
+            }
+        }
+    }
+
+    // Runs the Op at the current instruction pointer (IP), then increments the IP.
+    //
+    // If the IP is outside the range of our program, we halt, and return the invalid IP upon
+    // halting.
+
+    fn step(&mut self) -> Result<(), u32> {
+        // TODO: ideally, we can update our IP RegisterId's type to be a usize...
+        let ip = self.registers.get(self.ip_register) as usize;
+
+        if ip == 3 {
+            // Optimization for solving part 2 - when IP=3, skip the opcodes and execute an optimized
+            // form instead.
+
+            self.step_fast();
+            return Ok(());
+        }
+
+        let op = self
+            .ops
+            .get(ip)
+            .expect("IP should not point outside the program instruction range.");
+        let mut next_registers = op.exec(&self.registers);
+        let next_ip = next_registers.get(self.ip_register) + 1;
+
+        next_registers.set(self.ip_register, next_ip);
+
+        self.registers = next_registers;
+        if next_ip < (self.ops.len() as u32) {
+            Ok(())
+        } else {
+            // Stop the program once the IP goes out of range, returning the value in R0:
+            Err(self.registers.get(RegisterId::R0))
+        }
+    }
+
+    // An optimized implementation of the machine code at instruction pointer #3. This was specific
+    // to my input, so every input will vary. For your input, you'll need to examine your assembly code for
+    // sequences of opcodes that are looping excessively, and find a way to optimize it.
 
     fn step_fast(&mut self) {
-        // the goal of the IP=3 loop is to find the factor equal to R4 / R1, and greater than or
-        // equal to the value of R3.
+
+        // The goal of the IP=3 loop is to find the value of R4 / R1, assuming that the value of R3
+        // isn't already higher than the factor.
         //
-        // Once found, set that value to R3 and goto IP=7, and set R5 to 1.
+        // Once found, increment R0 by the value of the factor, and set the value of R3 to be (R4 + 1), and set R5 to 1.
 
-        // If no factor can be found to match that criteria, then set R3 to be (R4 + 1), and goto IP
-        // = 12, and set R5 to 0.
-
-        // Here is the logic in the opcodes, which is doing this calculation extremely inefficiently:
+        // Here is the logic in the machine code, which is doing this calculation extremely
+        // inefficiently:
         /*
         R5 = R1 * R3
         # when R2  pi=4
@@ -116,52 +162,6 @@ impl CPU {
         self.registers.set(RegisterId::R5, 1);
         self.registers.set(RegisterId::R3, r4 + 1);
         self.registers.set(self.ip_register, 12);
-    }
-
-    // runs the Op at the current instruction pointer (IP), then increments the IP.
-    //
-    // If the IP is outside the range of our program, we halt, and return the invalid IP upon
-    // halting.
-
-    fn step(&mut self) -> Result<(), u32> {
-        // TODO: ideally, we can update our IP RegisterId's type to be a usize...
-        let ip = self.registers.get(self.ip_register) as usize;
-
-        // Optimization for solving part 2 - when IP=3, skip the opcodes and execute an optimized
-        // form instead.
-
-        if ip == 3 {
-            self.step_fast();
-            return Ok(());
-        }
-
-        let op = self
-            .ops
-            .get(ip)
-            .expect("IP should not point outside the program instruction range.");
-        let mut next_registers = op.exec(&self.registers);
-        let next_ip = next_registers.get(self.ip_register) + 1;
-
-        next_registers.set(self.ip_register, next_ip);
-
-        self.registers = next_registers;
-        if next_ip < (self.ops.len() as u32) {
-            Ok(())
-        } else {
-            // Stop the program once the IP goes out of range, returning the value in R0:
-            Err(self.registers.get(RegisterId::R0))
-        }
-    }
-
-    // steps through our program until it halts, returning value at R0.
-
-    fn run(&mut self) -> u32 {
-        loop {
-            match self.step() {
-                Ok(()) => continue,
-                Err(r0_val) => return r0_val,
-            }
-        }
     }
 }
 

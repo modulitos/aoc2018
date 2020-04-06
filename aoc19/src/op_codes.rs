@@ -3,7 +3,7 @@ use std::convert::{From, TryFrom};
 use std::slice::Iter;
 use std::str::FromStr;
 
-// This module contains all logic pertaining to our registers and opcodes.
+// This module contains the data structures pertaining to our registers and opcodes.
 
 #[derive(Copy, Clone, Debug)]
 // This is just a ranged type.
@@ -220,7 +220,6 @@ impl Op {
             },
         };
         Ok(Op {
-            // id: name,
             opcode: kind,
             output: mkid(c)?,
         })
@@ -291,7 +290,7 @@ impl Op {
 impl FromStr for Op {
     type Err = Error;
 
-    // eg: seti 5 0 1
+    // eg: "seti 5 0 1"
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let matches = s.split(" ").collect::<Vec<&str>>();
@@ -332,5 +331,3 @@ pub enum Opcode {
     Eqri { a: RegisterId, b: RegisterValue },
     Eqrr { a: RegisterId, b: RegisterId },
 }
-
-// impl
