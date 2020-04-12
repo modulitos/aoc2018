@@ -224,14 +224,6 @@ fn test_instruction_pointer() -> Result<()> {
     Ok(())
 }
 
-fn lines_from_file(filename: impl AsRef<Path>) -> Vec<String> {
-    let file = File::open(filename).expect("no such file");
-    let buf = BufReader::new(file);
-    buf.lines()
-        .map(|l| l.expect("Could not parse line"))
-        .collect()
-}
-
 #[test]
 fn test_part_1() -> Result<()> {
     let file_name = PathBuf::from("./input/input.txt");
@@ -239,7 +231,9 @@ fn test_part_1() -> Result<()> {
     // gets the file path relative to the cargo project dir
     let file_path = canonicalize(&file_name)?;
     println!("file_path: {:?}", file_path);
-    let input = &lines_from_file(file_path).join("\n");
+    let mut file = File::open(file_path).expect("no such file");
+    let mut input = String::new();
+    file.read_to_string(&mut input)?;
 
     let mut cpu = input.parse::<CPU>()?;
 
@@ -255,7 +249,10 @@ fn test_part_2() -> Result<()> {
     // gets the file path relative to the cargo project dir
     let file_path = canonicalize(&file_name)?;
     println!("file_path: {:?}", file_path);
-    let input = &lines_from_file(file_path).join("\n");
+
+    let mut file = File::open(file_path).expect("no such file");
+    let mut input = String::new();
+    file.read_to_string(&mut input)?;
 
     let mut cpu = input.parse::<CPU>()?;
     cpu.registers.set(RegisterId::R0, 1);

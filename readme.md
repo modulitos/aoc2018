@@ -31,7 +31,11 @@ lessons learned:
    - leveraging trait objects with the state pattern (probably overkill for this problem, but a fun exercise)
  - aoc19
    - vec destructuring assignment
-   - read file into a string
+   - read file into a string, made more concise using `file.read_to_string` instead of `BufReader`
+   - optimizing machine code using opcodes and registers a hypothetical ISA
+ - aoc20
+   - vec destructuring assignment
+   - read file into a string, made more concise using `fs::read_to_string` instead of `file::read_to_string`
    - optimizing machine code using opcodes and registers a hypothetical ISA
  
  
