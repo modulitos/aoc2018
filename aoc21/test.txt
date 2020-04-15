@@ -1,0 +1,38 @@
+R2 = 65536
+R1 = 10605201
+
+R5 = R2 & 255
+R1 += R5
+R1 = R1 & 16777215
+
+R1 *= 65899
+
+R1 = R1 & 16777215
+
+if R2 < 256 {
+  R5 = 0 (?)
+  # at IP 18:
+  R4 = R5 + 1
+  R4 *= 256
+  if R4 > R2 {
+    R4 = 1
+    # goto IP 23
+    (guess)
+    R2 = R5
+    # goto IP 7
+
+  } else {
+    R4 = 0
+    # goto IP 24
+    R5 += 1
+    # goto IP 18
+  }
+} else {
+  R5 = 0
+  # goto IP 28:
+  if R1 == R0 {
+    halt!!!
+  } else {
+    # goto IP 6
+  }
+}
