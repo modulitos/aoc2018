@@ -18,7 +18,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone, Ord, PartialOrd)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy, Ord, PartialOrd)]
 struct Coordinate {
     x: u16,
     y: u16,
@@ -117,8 +117,8 @@ impl Cave {
                 let coord = Coordinate { x, y };
 
                 let erosion_level = (geologic_index + CaveValue::from(depth)) % 20_183;
-                erosion_levels.insert(coord.clone(), erosion_level);
-                regions.insert(coord.clone(), Region::from_erosion_level(erosion_level));
+                erosion_levels.insert(coord, erosion_level);
+                regions.insert(coord, Region::from_erosion_level(erosion_level));
                 geologic_indexes.insert(coord, geologic_index);
             }
         }
@@ -207,11 +207,10 @@ fn find_fastest_time_to_target(cave: &Cave) -> Result<Time> {
     let coord = Coordinate { x: 0, y: 0 };
 
     use Tool::*;
-    // TODO: is there an elegant way we can avoid cloning/copying Coordinate here???
     p_queue.push(Reverse((0, coord, Torch)));
 
     while let Some(Reverse((curr_time, curr_coord, curr_tool))) = p_queue.pop() {
-        if let Some(prev_time) = best_times.get(&(curr_coord.clone(), curr_tool)) {
+        if let Some(prev_time) = best_times.get(&(curr_coord, curr_tool)) {
             if prev_time <= &curr_time {
                 // skip exploring the current coord/tool combo if it's already accessible in a faster
                 continue;
@@ -219,7 +218,7 @@ fn find_fastest_time_to_target(cave: &Cave) -> Result<Time> {
         }
 
         // save our new best time:
-        best_times.insert((curr_coord.clone(), curr_tool), curr_time);
+        best_times.insert((curr_coord, curr_tool), curr_time);
 
         if curr_coord == cave.target && curr_tool == Torch {
             return Ok(curr_time);
@@ -231,7 +230,7 @@ fn find_fastest_time_to_target(cave: &Cave) -> Result<Time> {
         Tool::iter()
             .filter(|tool| tool != &&curr_tool)
             .filter(|tool| tool.can_access(cave.regions.get(&curr_coord).unwrap()))
-            .for_each(|&tool| p_queue.push(Reverse((curr_time + 7, curr_coord.clone(), tool))));
+            .for_each(|&tool| p_queue.push(Reverse((curr_time + 7, curr_coord, tool))));
 
         // Explore the adjacent coordinates that are accessible with our current tool.
         curr_coord
@@ -244,7 +243,7 @@ fn find_fastest_time_to_target(cave: &Cave) -> Result<Time> {
                 cave.regions.contains_key(&coord)
                     && curr_tool.can_access(cave.regions.get(&coord).unwrap())
             })
-            .for_each(|coord| p_queue.push(Reverse((curr_time + 1, coord.clone(), curr_tool))));
+            .for_each(|coord| p_queue.push(Reverse((curr_time + 1, coord, curr_tool))));
     }
     Err(Error::from("unable to reach the target within the Cave."))
 }
