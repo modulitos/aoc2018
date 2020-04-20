@@ -23,20 +23,24 @@ lessons learned:
    - iterating over enums
    - simple string parsing (`trim_start_matches`, `trim_end_matches`)
    - composition over inheritance w/ enum algebraic datatypes
-   - impl Display
  - aoc17
    - leveraging the `Range` and `RangeInclusive` types
    - returning declarative types using enums
+   - impl Display
  - aoc18
    - leveraging trait objects with the state pattern (probably overkill for this problem, but a fun exercise)
  - aoc19
    - vec destructuring assignment
    - read file into a string, made more concise using `file.read_to_string` instead of `BufReader`
    - optimizing machine code using opcodes and registers a hypothetical ISA
+   - override std::slice::Iter to iterate over all variants of an enum
  - aoc20
    - vec destructuring assignment
    - read file into a string, made more concise using `fs::read_to_string` instead of `file::read_to_string`
    - optimizing machine code using opcodes and registers a hypothetical ISA
+ - aoc22
+   - dijkstra's algorithm, using weighted edges 
+   - using the `|` "or" operator on enum variants within a `match` statement
  
  
 Additional advent of code resources:
