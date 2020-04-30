@@ -23,6 +23,7 @@ lessons learned:
    - iterating over enums
    - simple string parsing (`trim_start_matches`, `trim_end_matches`)
    - composition over inheritance w/ enum algebraic datatypes
+   - using the new type pattern for `pub struct Registers(pub [RegisterValue; 4]);`
  - aoc17
    - leveraging the `Range` and `RangeInclusive` types
    - returning declarative types using enums
@@ -41,6 +42,8 @@ lessons learned:
  - aoc22
    - dijkstra's algorithm, using weighted edges 
    - using the `|` "or" operator on enum variants within a `match` statement
+ - aoc23
+   - impl PartialOrd trait
  
  
 Additional advent of code resources:
